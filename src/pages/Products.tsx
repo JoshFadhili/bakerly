@@ -15,14 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 
-// 🔥 Firestore
-import {
-  collection,
-  getDocs,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+// 🔥 Services
+import { addProduct, getProducts } from "@/services/productService";
 
 // 🧩 Dialog (modal)
 import {
@@ -53,11 +47,7 @@ export default function Products() {
   // 🔹 Fetch products from Firestore
   const fetchProducts = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const productsList = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const productsList = await getProducts();
       setProducts(productsList);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -81,14 +71,14 @@ export default function Products() {
   // 🔹 Add product to Firestore
   const handleAddProduct = async () => {
     try {
-      await addDoc(collection(db, "products"), {
+      await addProduct({
         name: formData.name,
         category: formData.category,
         costPrice: Number(formData.costPrice),
         salePrice: Number(formData.salePrice),
         stock: Number(formData.stock),
-        status: Number(formData.stock) <= 10 ? "low" : "active",
-        createdAt: serverTimestamp(),
+        status: Number(formData.stock) <= 10 ? "low_stock" : "active",
+        createdAt: new Date(),
       });
 
       // Reset form

@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Product } from "../types/product";
+import { deleteDoc } from "firebase/firestore";
 
 // 🔗 Collection reference
 const productsRef = collection(db, "products");
@@ -42,4 +43,10 @@ export const updateProduct = async (
     ...data,
     updatedAt: Timestamp.now(), // 🔥 centrally controlled
   });
+};
+
+// 🗑️ DELETE PRODUCT
+export const deleteProduct = async (id: string) => {
+  const productRef = doc(db, "products", id);
+  await deleteDoc(productRef);
 };

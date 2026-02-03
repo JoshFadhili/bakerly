@@ -20,6 +20,7 @@ import {
   addProduct,
   getProducts,
   updateProduct,
+  deleteProduct,
 } from "@/services/productService";
 
 // 🧩 Dialog (modal)
@@ -41,6 +42,9 @@ export default function Products() {
 
   // 🧠 Edit state
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
+
+  // 🗑️ Delete state
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -105,6 +109,17 @@ export default function Products() {
 
     resetAndReload();
   };
+
+  // 🗑️ CONFIRM DELETE
+const handleDeleteProduct = async () => {
+  if (!deleteTarget) return;
+
+  await deleteProduct(deleteTarget.id);
+
+  setDeleteTarget(null);
+  setLoading(true);
+  fetchProducts();
+};
 
   // 🧹 Reset & reload
   const resetAndReload = () => {
@@ -247,8 +262,12 @@ export default function Products() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(product)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
                       </TableCell>
@@ -281,6 +300,39 @@ export default function Products() {
           <DialogFooter>
             <Button onClick={editingProduct ? handleUpdateProduct : handleAddProduct}>
               {editingProduct ? "Save Changes" : "Save Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* 🗑️ Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Product</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete{" "}
+            <span className="font-medium">{deleteTarget?.name}</span>?  
+            This action cannot be undone.
+          </p>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProduct}
+            >
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -16,7 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 
 // 🔥 Services
-import { addProduct, getProducts } from "@/services/productService";
+import {
+  addProduct,
+  getProducts,
+  updateProduct,
+} from "@/services/productService";
 
 // 🧩 Dialog (modal)
 import {
@@ -35,6 +39,9 @@ export default function Products() {
   // Modal state
   const [isOpen, setIsOpen] = useState(false);
 
+  // 🧠 Edit state
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -44,7 +51,7 @@ export default function Products() {
     stock: "",
   });
 
-  // 🔹 Fetch products from Firestore
+  // 🔹 Fetch products
   const fetchProducts = async () => {
     try {
       const productsList = await getProducts();
@@ -68,34 +75,63 @@ export default function Products() {
     });
   };
 
-  // 🔹 Add product to Firestore
+  // ➕ ADD PRODUCT
   const handleAddProduct = async () => {
-    try {
-      await addProduct({
-        name: formData.name,
-        category: formData.category,
-        costPrice: Number(formData.costPrice),
-        salePrice: Number(formData.salePrice),
-        stock: Number(formData.stock),
-        status: Number(formData.stock) <= 10 ? "low_stock" : "active",
-        createdAt: new Date(),
-      });
+    await addProduct({
+      name: formData.name,
+      category: formData.category,
+      costPrice: Number(formData.costPrice),
+      salePrice: Number(formData.salePrice),
+      stock: Number(formData.stock),
+      status: Number(formData.stock) <= 10 ? "low_stock" : "active",
+      createdAt: new Date(),
+    });
 
-      // Reset form
-      setFormData({
-        name: "",
-        category: "",
-        costPrice: "",
-        salePrice: "",
-        stock: "",
-      });
+    resetAndReload();
+  };
 
-      setIsOpen(false);
-      setLoading(true);
-      fetchProducts();
-    } catch (error) {
-      console.error("Error adding product:", error);
-    }
+  // ✏️ UPDATE PRODUCT
+  const handleUpdateProduct = async () => {
+    if (!editingProduct) return;
+
+    await updateProduct(editingProduct.id, {
+      name: formData.name,
+      category: formData.category,
+      costPrice: Number(formData.costPrice),
+      salePrice: Number(formData.salePrice),
+      stock: Number(formData.stock),
+      status: Number(formData.stock) <= 10 ? "low_stock" : "active",
+    });
+
+    resetAndReload();
+  };
+
+  // 🧹 Reset & reload
+  const resetAndReload = () => {
+    setFormData({
+      name: "",
+      category: "",
+      costPrice: "",
+      salePrice: "",
+      stock: "",
+    });
+    setEditingProduct(null);
+    setIsOpen(false);
+    setLoading(true);
+    fetchProducts();
+  };
+
+  // 🖊️ Open Edit modal
+  const openEditModal = (product: any) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      category: product.category,
+      costPrice: product.costPrice.toString(),
+      salePrice: product.salePrice.toString(),
+      stock: product.stock.toString(),
+    });
+    setIsOpen(true);
   };
 
   // 🔍 Search filter
@@ -132,7 +168,10 @@ export default function Products() {
             <Button
               variant="success"
               size="sm"
-              onClick={() => setIsOpen(true)}
+              onClick={() => {
+                setEditingProduct(null);
+                setIsOpen(true);
+              }}
             >
               <Plus className="h-4 w-4" />
               Add Product
@@ -201,7 +240,11 @@ export default function Products() {
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditModal(product)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon">
@@ -218,51 +261,27 @@ export default function Products() {
         </CardContent>
       </Card>
 
-      {/* ➕ Add Product Modal */}
+      {/* ➕ / ✏️ Add/Edit Product Modal */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Product</DialogTitle>
+            <DialogTitle>
+              {editingProduct ? "Edit Product" : "Add New Product"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
-            <Input
-              name="name"
-              placeholder="Product Name"
-              value={formData.name}
-              onChange={handleChange}
-            />
-            <Input
-              name="category"
-              placeholder="Category"
-              value={formData.category}
-              onChange={handleChange}
-            />
-            <Input
-              name="costPrice"
-              type="number"
-              placeholder="Cost Price"
-              value={formData.costPrice}
-              onChange={handleChange}
-            />
-            <Input
-              name="salePrice"
-              type="number"
-              placeholder="Sale Price"
-              value={formData.salePrice}
-              onChange={handleChange}
-            />
-            <Input
-              name="stock"
-              type="number"
-              placeholder="Initial Stock"
-              value={formData.stock}
-              onChange={handleChange}
-            />
+            <Input name="name" placeholder="Product Name" value={formData.name} onChange={handleChange} />
+            <Input name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
+            <Input name="costPrice" type="number" placeholder="Cost Price" value={formData.costPrice} onChange={handleChange} />
+            <Input name="salePrice" type="number" placeholder="Sale Price" value={formData.salePrice} onChange={handleChange} />
+            <Input name="stock" type="number" placeholder="Initial Stock" value={formData.stock} onChange={handleChange} />
           </div>
 
           <DialogFooter>
-            <Button onClick={handleAddProduct}>Save Product</Button>
+            <Button onClick={editingProduct ? handleUpdateProduct : handleAddProduct}>
+              {editingProduct ? "Save Changes" : "Save Product"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

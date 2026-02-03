@@ -7,4 +7,5 @@ export interface Product {
   stock: number
   status: "active" | "low_stock"
   createdAt: Date
+   updatedAt?: Date; // ✅ ADD THIS
 }

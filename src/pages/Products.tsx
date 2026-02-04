@@ -392,9 +392,13 @@ export default function Products() {
                       </TableCell>
 
                       <TableCell className="hidden md:table-cell">
-                        {service.createdAt instanceof Date
-                          ? service.createdAt.toLocaleDateString()
-                          : new Date(service.createdAt).toLocaleDateString()}
+                        {service.createdAt
+                          ? (service.createdAt instanceof Date
+                              ? service.createdAt.toLocaleDateString()
+                              : service.createdAt?.toDate
+                                ? service.createdAt.toDate().toLocaleDateString()
+                                : new Date(service.createdAt).toLocaleDateString())
+                          : 'N/A'}
                       </TableCell>
 
                       <TableCell className="text-right">

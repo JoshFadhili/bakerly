@@ -14,6 +14,11 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { 
+  getCategories,
+  addCategory,
+  deleteCategory,
+ } from "@/services/categoryService";
 
 // 🔥 Services
 import {
@@ -57,18 +62,32 @@ export default function Products() {
     salePrice: "",
     stock: "",
   });
+  
+    // 🔹 Tabs state
+  // Type annotation added to fix TypeScript error: comparison between "categories" and "services" has no overlap
+  const [activeTab, setActiveTab] = useState<"goods" | "categories" | "services">("goods");
+
+  // 🔹 Categories state
+  const [categories, setCategories] = useState<any[]>([]);
+  const [newCategory, setNewCategory] = useState("");
 
   // 🔹 Fetch products
   const fetchProducts = async () => {
     try {
-      const productsList = await getProducts();
+      const [productsList, categoryList] = await Promise.all([
+        getProducts(),
+        getCategories(),
+      ]);
+
       setProducts(productsList);
+      setCategories(categoryList);
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchProducts();
@@ -114,15 +133,15 @@ export default function Products() {
   };
 
   // 🗑️ CONFIRM DELETE
-const handleDeleteProduct = async () => {
-  if (!deleteTarget) return;
+  const handleDeleteProduct = async () => {
+    if (!deleteTarget) return;
 
-  await deleteProduct(deleteTarget.id);
+    await deleteProduct(deleteTarget.id);
 
-  setDeleteTarget(null);
-  setLoading(true);
-  fetchProducts();
-};
+    setDeleteTarget(null);
+    setLoading(true);
+    fetchProducts();
+  };
 
   // 🧹 Reset & reload
   const resetAndReload = () => {
@@ -164,11 +183,15 @@ const handleDeleteProduct = async () => {
     >
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs defaultValue="goods" className="w-full sm:w-auto">
+          <Tabs
+            value={activeTab as "goods" | "categories" | "services"}
+            onValueChange={(value: "goods" | "categories" | "services") => setActiveTab(value)}
+            className="w-full sm:w-auto"
+          >
             <TabsList>
-              <TabsTrigger value="goods">Goods</TabsTrigger>
-              <TabsTrigger value="categories">Categories</TabsTrigger>
-              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="goods" asChild={false}>Goods</TabsTrigger>
+              <TabsTrigger value="categories" asChild={false}>Categories</TabsTrigger>
+              <TabsTrigger value="services" asChild={false}>Services</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -199,8 +222,53 @@ const handleDeleteProduct = async () => {
 
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading products...</p>
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : activeTab === "categories" ? (
+            /* ================= CATEGORIES UI ================= */
+            <div className="space-y-4 max-w-md">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="New category name"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                />
+                <Button
+                  onClick={async () => {
+                    if (!newCategory.trim()) return;
+                    await addCategory(newCategory, "categories");
+                    setNewCategory("");
+                    fetchProducts();
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {categories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between border rounded-md px-3 py-2"
+                  >
+                    <span>{cat.name}</span>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={async () => {
+                        if (!confirm("Delete this category?")) return;
+                        await deleteCategory(cat.id);
+                        fetchProducts();
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
+            /* ================= GOODS / SERVICES TABLE ================= */
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -281,6 +349,7 @@ const handleDeleteProduct = async () => {
             </div>
           )}
         </CardContent>
+
       </Card>
 
       {/* ➕ / ✏️ Add/Edit Product Modal */}
@@ -294,7 +363,21 @@ const handleDeleteProduct = async () => {
 
           <div className="space-y-3">
             <Input name="name" placeholder="Product Name" value={formData.name} onChange={handleChange} />
-            <Input name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
+            <select
+              name="category"
+              value={formData.category}
+              onChange={(e) =>
+                setFormData({ ...formData, category: e.target.value })
+              }
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Select category</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
             <Input name="costPrice" type="number" placeholder="Cost Price" value={formData.costPrice} onChange={handleChange} />
             <Input name="salePrice" type="number" placeholder="Sale Price" value={formData.salePrice} onChange={handleChange} />
             <Input name="stock" type="number" placeholder="Initial Stock" value={formData.stock} onChange={handleChange} />

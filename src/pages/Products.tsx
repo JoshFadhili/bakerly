@@ -23,6 +23,9 @@ import {
   deleteProduct,
 } from "@/services/productService";
 
+// 🧩 Types
+import { Product } from "@/types/product";
+
 // 🧩 Dialog (modal)
 import {
   Dialog,
@@ -34,17 +37,17 @@ import {
 
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state
   const [isOpen, setIsOpen] = useState(false);
 
   // 🧠 Edit state
-  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // 🗑️ Delete state
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -137,7 +140,7 @@ const handleDeleteProduct = async () => {
   };
 
   // 🖊️ Open Edit modal
-  const openEditModal = (product: any) => {
+  const openEditModal = (product: Product) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,

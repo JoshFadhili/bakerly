@@ -14,13 +14,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
-import { 
+import {
   getCategories,
   addCategory,
   deleteCategory,
- } from "@/services/categoryService";
+} from "@/services/categoryService";
 
-// 🔥 Services
+// 🔥 Products
 import {
   addProduct,
   getProducts,
@@ -28,8 +28,17 @@ import {
   deleteProduct,
 } from "@/services/productService";
 
+// 🔥 Services
+import {
+  addService,
+  getServices,
+  updateService,
+  deleteService,
+} from "@/services/serviceService";
+
 // 🧩 Types
 import { Product } from "@/types/product";
+import { Service } from "@/types/service";
 
 // 🧩 Dialog (modal)
 import {
@@ -43,16 +52,19 @@ import {
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state
   const [isOpen, setIsOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
 
   // 🧠 Edit state
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
   // 🗑️ Delete state
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | Service | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -62,8 +74,15 @@ export default function Products() {
     salePrice: "",
     stock: "",
   });
-  
-    // 🔹 Tabs state
+
+  // Service form state
+  const [serviceFormData, setServiceFormData] = useState({
+    name: "",
+    category: "",
+    price: "",
+  });
+
+  // 🔹 Tabs state
   // Type annotation added to fix TypeScript error: comparison between "categories" and "services" has no overlap
   const [activeTab, setActiveTab] = useState<"goods" | "categories" | "services">("goods");
 
@@ -71,16 +90,18 @@ export default function Products() {
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState("");
 
-  // 🔹 Fetch products
+  // 🔹 Fetch products and services
   const fetchProducts = async () => {
     try {
-      const [productsList, categoryList] = await Promise.all([
+      const [productsList, categoryList, servicesList] = await Promise.all([
         getProducts(),
         getCategories(),
+        getServices(),
       ]);
 
       setProducts(productsList);
       setCategories(categoryList);
+      setServices(servicesList);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -97,6 +118,14 @@ export default function Products() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // 🔹 Handle service input change
+  const handleServiceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setServiceFormData({
+      ...serviceFormData,
       [e.target.name]: e.target.value,
     });
   };
@@ -132,11 +161,40 @@ export default function Products() {
     resetAndReload();
   };
 
+  // ➕ ADD SERVICE
+  const handleAddService = async () => {
+    await addService({
+      name: serviceFormData.name,
+      category: serviceFormData.category,
+      price: Number(serviceFormData.price),
+      createdAt: new Date(),
+    });
+
+    resetServiceAndReload();
+  };
+
+  // ✏️ UPDATE SERVICE
+  const handleUpdateService = async () => {
+    if (!editingService) return;
+
+    await updateService(editingService.id, {
+      name: serviceFormData.name,
+      category: serviceFormData.category,
+      price: Number(serviceFormData.price),
+    });
+
+    resetServiceAndReload();
+  };
+
   // 🗑️ CONFIRM DELETE
   const handleDeleteProduct = async () => {
     if (!deleteTarget) return;
 
-    await deleteProduct(deleteTarget.id);
+    if (activeTab === "services") {
+      await deleteService(deleteTarget.id);
+    } else {
+      await deleteProduct(deleteTarget.id);
+    }
 
     setDeleteTarget(null);
     setLoading(true);
@@ -158,6 +216,19 @@ export default function Products() {
     fetchProducts();
   };
 
+  // 🧹 Reset service & reload
+  const resetServiceAndReload = () => {
+    setServiceFormData({
+      name: "",
+      category: "",
+      price: "",
+    });
+    setEditingService(null);
+    setIsServiceModalOpen(false);
+    setLoading(true);
+    fetchProducts();
+  };
+
   // 🖊️ Open Edit modal
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
@@ -171,9 +242,24 @@ export default function Products() {
     setIsOpen(true);
   };
 
+  // 🖊️ Open Edit service modal
+  const openEditServiceModal = (service: Service) => {
+    setEditingService(service);
+    setServiceFormData({
+      name: service.name,
+      category: service.category,
+      price: service.price.toString(),
+    });
+    setIsServiceModalOpen(true);
+  };
+
   // 🔍 Search filter
   const filteredProducts = products.filter((product) =>
     product.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredServices = services.filter((service) =>
+    service.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -199,7 +285,7 @@ export default function Products() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder={activeTab === "services" ? "Search services..." : "Search products..."}
                 className="w-full pl-9 sm:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -210,12 +296,17 @@ export default function Products() {
               variant="success"
               size="sm"
               onClick={() => {
-                setEditingProduct(null);
-                setIsOpen(true);
+                if (activeTab === "services") {
+                  setEditingService(null);
+                  setIsServiceModalOpen(true);
+                } else {
+                  setEditingProduct(null);
+                  setIsOpen(true);
+                }
               }}
             >
               <Plus className="h-4 w-4" />
-              Add Product
+              {activeTab === "services" ? "Add Service" : "Add Product"}
             </Button>
           </div>
         </CardHeader>
@@ -267,8 +358,70 @@ export default function Products() {
                 ))}
               </div>
             </div>
+          ) : activeTab === "services" ? (
+            /* ================= SERVICES TABLE ================= */
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Service Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      Category
+                    </TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Created At
+                    </TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {filteredServices.map((service) => (
+                    <TableRow key={service.id}>
+                      <TableCell className="font-medium">
+                        {service.name}
+                      </TableCell>
+
+                      <TableCell className="hidden sm:table-cell">
+                        {service.category}
+                      </TableCell>
+
+                      <TableCell>
+                        KSh {Number(service.price).toLocaleString()}
+                      </TableCell>
+
+                      <TableCell className="hidden md:table-cell">
+                        {service.createdAt instanceof Date
+                          ? service.createdAt.toLocaleDateString()
+                          : new Date(service.createdAt).toLocaleDateString()}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditServiceModal(service)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(service)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
-            /* ================= GOODS / SERVICES TABLE ================= */
+            /* ================= GOODS TABLE ================= */
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -390,6 +543,44 @@ export default function Products() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ➕ / ✏️ Add/Edit Service Modal */}
+      <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingService ? "Edit Service" : "Add New Service"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input name="name" placeholder="Service Name" value={serviceFormData.name} onChange={handleServiceChange} />
+            <select
+              name="category"
+              value={serviceFormData.category}
+              onChange={(e) =>
+                setServiceFormData({ ...serviceFormData, category: e.target.value })
+              }
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Select category</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            <Input name="price" type="number" placeholder="Price" value={serviceFormData.price} onChange={handleServiceChange} />
+          </div>
+
+          <DialogFooter>
+            <Button onClick={editingService ? handleUpdateService : handleAddService}>
+              {editingService ? "Save Changes" : "Save Service"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 🗑️ Delete Confirmation Dialog */}
       <Dialog
         open={!!deleteTarget}
@@ -397,12 +588,12 @@ export default function Products() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Product</DialogTitle>
+            <DialogTitle>{activeTab === "services" ? "Delete Service" : "Delete Product"}</DialogTitle>
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete{" "}
-            <span className="font-medium">{deleteTarget?.name}</span>?  
+            <span className="font-medium">{deleteTarget?.name}</span>?
             This action cannot be undone.
           </p>
 

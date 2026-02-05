@@ -9,6 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
+import { useSaleDialog } from "@/contexts/SaleDialogContext";
 
 interface ERPHeaderProps {
   title: string;
@@ -16,6 +18,16 @@ interface ERPHeaderProps {
 }
 
 export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
+  const navigate = useNavigate();
+  const { openNewSaleDialog } = useSaleDialog();
+
+  const handleNewSaleClick = () => {
+    // Navigate to sales page
+    navigate("/sales");
+    // Open the dialog (will be handled by the Sales page)
+    setTimeout(() => openNewSaleDialog(), 100);
+  };
+
   return (
     <header className="flex flex-col gap-4 border-b border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
       <div className="pt-10 lg:pt-0">
@@ -28,7 +40,7 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="sale" size="sm">
+        <Button variant="sale" size="sm" onClick={handleNewSaleClick}>
           <ShoppingCart className="h-4 w-4" />
           <span className="hidden sm:inline">New Sale</span>
         </Button>

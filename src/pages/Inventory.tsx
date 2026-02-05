@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,88 +13,179 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, AlertTriangle, Plus } from "lucide-react";
-
-const inventoryData = [
-  {
-    id: 1,
-    name: "Type-C Charger",
-    category: "Chargers",
-    stockInHand: 150,
-    minStock: 20,
-    unit: "pcs",
-    lastUpdated: "2024-01-26",
-    value: 37500,
-  },
-  {
-    id: 2,
-    name: "Wireless Earbuds",
-    category: "Audio",
-    stockInHand: 45,
-    minStock: 15,
-    unit: "pcs",
-    lastUpdated: "2024-01-25",
-    value: 36000,
-  },
-  {
-    id: 3,
-    name: "Phone Batteries",
-    category: "Batteries",
-    stockInHand: 8,
-    minStock: 25,
-    unit: "pcs",
-    lastUpdated: "2024-01-24",
-    value: 2800,
-  },
-  {
-    id: 4,
-    name: "Screen Protector",
-    category: "Accessories",
-    stockInHand: 200,
-    minStock: 50,
-    unit: "pcs",
-    lastUpdated: "2024-01-26",
-    value: 10000,
-  },
-  {
-    id: 5,
-    name: "Power Bank",
-    category: "Power",
-    stockInHand: 3,
-    minStock: 10,
-    unit: "pcs",
-    lastUpdated: "2024-01-20",
-    value: 1800,
-  },
-  {
-    id: 6,
-    name: "USB Cables",
-    category: "Cables",
-    stockInHand: 5,
-    minStock: 30,
-    unit: "pcs",
-    lastUpdated: "2024-01-22",
-    value: 500,
-  },
-];
+import { Search, Download, AlertTriangle, Plus, Minus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getInventory,
+  getLowStockItems,
+  getInventoryByCategory,
+  addStock,
+  adjustStock,
+} from "@/services/inventoryService";
+import { InventoryItem } from "@/types/inventory";
+import { Product } from "@/types/product";
 
 export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredInventory = inventoryData.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    if (filter === "low") {
-      return matchesSearch && item.stockInHand < item.minStock;
+  // Modal states
+  const [isAddStockOpen, setIsAddStockOpen] = useState(false);
+  const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
+  // Form states
+  const [addStockQuantity, setAddStockQuantity] = useState("");
+  const [adjustStockQuantity, setAdjustStockQuantity] = useState("");
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+
+  // Fetch inventory data
+  const fetchInventory = async () => {
+    try {
+      let data;
+      if (categoryFilter !== "all") {
+        data = await getInventoryByCategory(categoryFilter);
+      } else if (filter === "low") {
+        data = await getLowStockItems();
+      } else {
+        data = await getInventory();
+      }
+      setInventory(data);
+    } catch (error) {
+      console.error("Error loading inventory:", error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, [filter, categoryFilter]);
+
+  // Filter inventory based on search query
+  const filteredInventory = inventory.filter((item) => {
+    const matchesSearch = item.name
+      ?.toLowerCase()
+      .includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
-  const lowStockCount = inventoryData.filter(
-    (item) => item.stockInHand < item.minStock
+  // Get unique categories
+  const categories = Array.from(
+    new Set(inventory.map((item) => item.category))
+  ).filter(Boolean);
+
+  // Calculate stats
+  const totalProducts = inventory.length;
+  const totalStockValue = inventory.reduce(
+    (acc, item) => acc + (item.stock * item.salePrice),
+    0
+  );
+  const lowStockCount = inventory.filter(
+    (item) => item.stock < 10
   ).length;
+
+  // Handle add stock
+  const handleAddStock = async () => {
+    if (!selectedItem || !addStockQuantity) return;
+
+    await addStock(
+      selectedItem.id!,
+      Number(addStockQuantity)
+    );
+
+    setIsAddStockOpen(false);
+    setAddStockQuantity("");
+    setSelectedItem(null);
+    fetchInventory();
+  };
+
+  // Handle stock adjustment
+  const handleAdjustStock = async () => {
+    if (!selectedItem || !adjustStockQuantity) return;
+
+    await adjustStock(
+      selectedItem.id!,
+      Number(adjustStockQuantity),
+      adjustmentReason
+    );
+
+    setIsAdjustStockOpen(false);
+    setAdjustStockQuantity("");
+    setAdjustmentReason("");
+    setSelectedItem(null);
+    fetchInventory();
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = [
+      "Product Name",
+      "Category",
+      "Stock In Hand",
+      "Cost Price",
+      "Sale Price",
+      "Stock Value",
+      "Status",
+      "Last Updated",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...filteredInventory.map((item) => {
+        const isLowStock = item.stock < 10;
+        const status = isLowStock ? "Low Stock" : "In Stock";
+        const lastUpdated = item.updatedAt
+          ? item.updatedAt instanceof Date
+            ? item.updatedAt.toLocaleDateString()
+            : item.updatedAt?.toDate
+              ? item.updatedAt.toDate().toLocaleDateString()
+              : new Date(item.updatedAt).toLocaleDateString()
+          : "N/A";
+        const stockValue = item.stock * item.salePrice;
+
+        return [
+          `"${item.name || ""}"`,
+          `"${item.category || ""}"`,
+          item.stock || 0,
+          item.costPrice || 0,
+          item.salePrice || 0,
+          stockValue || 0,
+          status,
+          lastUpdated,
+        ].join(",");
+      }),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `inventory_${filter === "low" ? "low_stock" : categoryFilter}_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <ERPLayout title="Inventory" subtitle="Track stock levels and manage inventory">
@@ -103,23 +194,21 @@ export default function Inventory() {
         <Card className="border-l-4 border-l-erp-blue">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Products</p>
-            <p className="text-2xl font-bold">{inventoryData.length}</p>
+            <p className="text-2xl font-bold">{totalProducts}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-green">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Stock Value</p>
             <p className="text-2xl font-bold">
-              KSh {inventoryData.reduce((acc, item) => acc + item.value, 0).toLocaleString()}
+              KSh {totalStockValue.toLocaleString()}
             </p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-orange">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Categories</p>
-            <p className="text-2xl font-bold">
-              {new Set(inventoryData.map((item) => item.category)).size}
-            </p>
+            <p className="text-2xl font-bold">{categories.length}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-red">
@@ -132,7 +221,7 @@ export default function Inventory() {
 
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Tabs value={filter} onValueChange={setFilter}>
               <TabsList>
                 <TabsTrigger value="all">All Items</TabsTrigger>
@@ -142,6 +231,19 @@ export default function Inventory() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative">
@@ -153,66 +255,214 @@ export default function Inventory() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button variant="success" size="sm">
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => {
+                if (filteredInventory.length === 1) {
+                  setSelectedItem(filteredInventory[0]);
+                  setIsAddStockOpen(true);
+                }
+              }}
+              disabled={filteredInventory.length !== 1}
+            >
               <Plus className="h-4 w-4" />
-              Stock Adjustment
+              Add Stock
             </Button>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (filteredInventory.length === 1) {
+                  setSelectedItem(filteredInventory[0]);
+                  setIsAdjustStockOpen(true);
+                }
+              }}
+              disabled={filteredInventory.length !== 1}
+            >
+              <Minus className="h-4 w-4" />
+              Adjust Stock
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4" />
               Export
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">Category</TableHead>
-                  <TableHead>Stock In Hand</TableHead>
-                  <TableHead className="hidden md:table-cell">Min Stock</TableHead>
-                  <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInventory.map((item) => {
-                  const isLowStock = item.stockInHand < item.minStock;
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {item.category}
-                      </TableCell>
-                      <TableCell>
-                        {item.stockInHand} {item.unit}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {item.minStock} {item.unit}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        KSh {item.value.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            isLowStock
-                              ? "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
-                              : "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
-                          }
-                        >
-                          {isLowStock ? "Low Stock" : "In Stock"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                 <TableHeader>
+                  <TableRow>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">Category</TableHead>
+                    <TableHead>Stock In Hand</TableHead>
+                    <TableHead className="hidden md:table-cell">Cost Price</TableHead>
+                    <TableHead className="hidden md:table-cell">Sale Price</TableHead>
+                    <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInventory.map((item) => {
+                    const isLowStock = item.stock < 10;
+                    const stockValue = item.stock * item.salePrice;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {item.category}
+                        </TableCell>
+                        <TableCell>
+                          {item.stock} pcs
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          KSh {item.costPrice?.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          KSh {item.salePrice?.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          KSh {stockValue.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              isLowStock
+                                ? "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
+                                : "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
+                            }
+                          >
+                            {isLowStock ? "Low Stock" : "In Stock"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsAddStockOpen(true);
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsAdjustStockOpen(true);
+                              }}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Add Stock Modal */}
+      <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Stock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Product</p>
+              <p className="text-lg font-semibold">{selectedItem?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Current Stock: {selectedItem?.stock} pcs
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Quantity to Add</label>
+              <Input
+                type="number"
+                placeholder="Enter quantity"
+                value={addStockQuantity}
+                onChange={(e) => setAddStockQuantity(e.target.value)}
+                min="1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddStockOpen(false);
+                setAddStockQuantity("");
+                setSelectedItem(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddStock}>Add Stock</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Stock Modal */}
+      <Dialog open={isAdjustStockOpen} onOpenChange={setIsAdjustStockOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Stock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Product</p>
+              <p className="text-lg font-semibold">{selectedItem?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Current Stock: {selectedItem?.stock} pcs
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Adjustment (+/-)</label>
+              <Input
+                type="number"
+                placeholder="Enter adjustment (positive to add, negative to reduce)"
+                value={adjustStockQuantity}
+                onChange={(e) => setAdjustStockQuantity(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Reason (Optional)</label>
+              <Input
+                placeholder="e.g., Damaged goods, Data correction, etc."
+                value={adjustmentReason}
+                onChange={(e) => setAdjustmentReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAdjustStockOpen(false);
+                setAdjustStockQuantity("");
+                setAdjustmentReason("");
+                setSelectedItem(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAdjustStock}>Adjust Stock</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ERPLayout>
   );
 }

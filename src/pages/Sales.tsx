@@ -12,10 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Download, Eye, X } from "lucide-react";
+import { Search, Filter, Download, Eye, Edit, X } from "lucide-react";
 import { getSales } from "@/services/salesService";
 import { Sale } from "@/types/sale";
 import NewSaleDialog from "@/components/sales/NewSaleDialog";
+import EditSaleDialog from "@/components/sales/EditSaleDialog";
 import {
   Dialog,
   DialogContent,
@@ -48,9 +49,10 @@ export default function Sales() {
   const [filterMaxAmount, setFilterMaxAmount] = useState<string>("");
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
-  // View sale details
+  // View/Edit sale details
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Sync with global dialog state
   useEffect(() => {
@@ -150,6 +152,12 @@ export default function Sales() {
     setIsViewDialogOpen(true);
   };
 
+  // Edit sale
+  const editSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    setIsEditDialogOpen(true);
+  };
+
   return (
     <ERPLayout title="Sales" subtitle="Track and manage all sales transactions">
       <Card>
@@ -242,13 +250,22 @@ export default function Sales() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => viewSale(sale)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => viewSale(sale)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => editSale(sale)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -264,6 +281,14 @@ export default function Sales() {
         isOpen={isNewSaleDialogOpen}
         onClose={() => setIsNewSaleDialogOpen(false)}
         onSaleAdded={fetchSales}
+      />
+
+      {/* Edit Sale Dialog */}
+      <EditSaleDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onSaleUpdated={fetchSales}
+        sale={selectedSale}
       />
 
       {/* Filter Dialog */}

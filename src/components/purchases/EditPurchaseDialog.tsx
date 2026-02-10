@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
@@ -18,42 +20,46 @@ import {
 } from "@/components/ui/select";
 import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
-import { updateSale } from "@/services/salesService";
-import { Sale } from "@/types/sale";
+import { updatePurchase } from "@/services/purchaseService";
+import { Purchase } from "@/types/purchase";
 import { Search, Calendar, AlertCircle, Info } from "lucide-react";
 
-interface EditSaleDialogProps {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/* eslint-disable react-hooks/exhaustive-deps */
+
+interface EditPurchaseDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaleUpdated: () => void;
-  sale: Sale | null;
+  onPurchaseUpdated: () => void;
+  purchase: Purchase | null;
 }
 
-export default function EditSaleDialog({
+export default function EditPurchaseDialog({
   isOpen,
   onClose,
-  onSaleUpdated,
-  sale,
-}: EditSaleDialogProps) {
+  onPurchaseUpdated,
+  purchase,
+}: EditPurchaseDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stockWarning, setStockWarning] = useState("");
   const [stockChangeInfo, setStockChangeInfo] = useState("");
 
   const [formData, setFormData] = useState({
     date: "",
     itemName: "",
+    supplier: "",
     items: "1",
-    totalAmount: "",
-    payment: "Cash" as "Cash" | "M-Pesa" | "Card" | "Bank Transfer",
-    status: "completed" as "completed" | "pending" | "cancelled",
+    itemPrice: "",
+    totalCost: "",
+    status: "received" as "received" | "pending" | "cancelled",
   });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [originalStatus, setOriginalStatus] = useState<"completed" | "pending" | "cancelled">("completed");
+  const [originalStatus, setOriginalStatus] = useState<"received" | "pending" | "cancelled">("received");
   const [originalQuantity, setOriginalQuantity] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -85,33 +91,34 @@ export default function EditSaleDialog({
     fetchProducts();
   }, []);
 
-  // Initialize form with sale data when sale changes
+  // Initialize form with purchase data when purchase changes
   useEffect(() => {
-    if (sale) {
-      const dateStr = sale.date instanceof Date 
-        ? sale.date.toISOString().split('T')[0]
-        : new Date(sale.date).toISOString().split('T')[0];
+    if (purchase) {
+      const dateStr = purchase.date instanceof Date 
+        ? purchase.date.toISOString().split('T')[0]
+        : new Date(purchase.date).toISOString().split('T')[0];
       
       setFormData({
         date: dateStr,
-        itemName: sale.itemName,
-        items: sale.items.toString(),
-        totalAmount: sale.totalAmount.toString(),
-        payment: sale.payment,
-        status: sale.status,
+        itemName: purchase.itemName,
+        supplier: purchase.supplier,
+        items: purchase.items.toString(),
+        itemPrice: purchase.itemPrice.toString(),
+        totalCost: purchase.totalCost.toString(),
+        status: purchase.status,
       });
       
-      setOriginalStatus(sale.status);
-      setOriginalQuantity(sale.items);
-      setSearchQuery(sale.itemName);
+      setOriginalStatus(purchase.status);
+      setOriginalQuantity(purchase.items);
+      setSearchQuery(purchase.itemName);
       
       // Find the product
-      const product = products.find(p => p.name === sale.itemName);
+      const product = products.find(p => p.name === purchase.itemName);
       if (product) {
         setSelectedProduct(product);
       }
     }
-  }, [sale, products]);
+  }, [purchase, products]);
 
   // Filter products based on search query
   useEffect(() => {
@@ -125,78 +132,65 @@ export default function EditSaleDialog({
     }
   }, [searchQuery, products]);
 
-  // Auto-calculate total amount when product and quantity change
+  // Auto-calculate total cost when item price and quantity change
   useEffect(() => {
-    if (selectedProduct && formData.items) {
-      const calculatedAmount = selectedProduct.salePrice * Number(formData.items);
+    if (formData.itemPrice && formData.items) {
+      const calculatedCost = Number(formData.itemPrice) * Number(formData.items);
       setFormData((prev) => ({
         ...prev,
-        totalAmount: calculatedAmount.toString(),
+        totalCost: calculatedCost.toString(),
       }));
 
       // Calculate stock changes
       const newQuantity = Number(formData.items);
       const quantityChange = newQuantity - originalQuantity;
       
-      if (formData.status === "completed") {
-        if (quantityChange > 0) {
-          // Selling more items than before
-          const availableStock = selectedProduct.stock;
-          const additionalNeeded = quantityChange;
-          if (additionalNeeded > availableStock) {
-            setStockWarning(
-              `Warning: Only ${availableStock} additional items available in stock. You're trying to sell ${additionalNeeded} more.`
-            );
-            setStockChangeInfo(`Stock will be reduced by ${additionalNeeded} (from ${selectedProduct.stock} to ${selectedProduct.stock - additionalNeeded})`);
+      if (formData.status === "received") {
+        if (selectedProduct) {
+          const currentStock = selectedProduct.stock;
+          
+          if (quantityChange > 0) {
+            // Adding more items than before
+            setStockChangeInfo(`Stock will be increased by ${quantityChange} (from ${currentStock} to ${currentStock + quantityChange})`);
+          } else if (quantityChange < 0) {
+            // Adding fewer items than before
+            setStockChangeInfo(`Stock will be decreased by ${Math.abs(quantityChange)} (from ${currentStock} to ${currentStock + quantityChange})`);
           } else {
-            setStockWarning("");
-            setStockChangeInfo(`Stock will be reduced by ${additionalNeeded} (from ${selectedProduct.stock} to ${selectedProduct.stock - additionalNeeded})`);
+            setStockChangeInfo("No change in quantity");
           }
-        } else if (quantityChange < 0) {
-          // Selling fewer items than before - restore stock
-          setStockWarning("");
-          setStockChangeInfo(`Stock will be increased by ${Math.abs(quantityChange)} (from ${selectedProduct.stock} to ${selectedProduct.stock + Math.abs(quantityChange)})`);
-        } else {
-          setStockWarning("");
-          setStockChangeInfo("No change in quantity");
         }
       }
     }
-  }, [selectedProduct, formData.items, formData.status, originalQuantity]);
+  }, [formData.itemPrice, formData.items, formData.status, originalQuantity, selectedProduct]);
 
   // Handle status change
   useEffect(() => {
-    if (selectedProduct && sale) {
+    if (selectedProduct && purchase) {
       const statusChanged = formData.status !== originalStatus;
       
-      if (statusChanged && formData.status === "completed" && originalStatus !== "completed") {
-        // Changing to completed - reduce stock
+      if (statusChanged && formData.status === "received" && originalStatus !== "received") {
+        // Changing to received - add stock
         const newQuantity = Number(formData.items);
-        const availableStock = selectedProduct.stock;
-        if (newQuantity > availableStock) {
-          setStockWarning(
-            `Warning: Only ${availableStock} items available in stock. You're trying to sell ${newQuantity}.`
-          );
-        } else {
-          setStockWarning("");
-          setStockChangeInfo(`Stock will be reduced by ${newQuantity} (from ${selectedProduct.stock} to ${selectedProduct.stock - newQuantity})`);
-        }
-      } else if (statusChanged && formData.status !== "completed" && originalStatus === "completed") {
-        // Changing from completed - restore stock
-        setStockWarning("");
-        setStockChangeInfo(`Stock will be restored by ${originalQuantity} (from ${selectedProduct.stock} to ${selectedProduct.stock + originalQuantity})`);
+        const currentStock = selectedProduct.stock;
+        setStockChangeInfo(`Stock will be increased by ${newQuantity} (from ${currentStock} to ${currentStock + newQuantity})`);
+      } else if (statusChanged && formData.status !== "received" && originalStatus === "received") {
+        // Changing from received - restore stock
+        const currentStock = selectedProduct.stock;
+        setStockChangeInfo(`Stock will be decreased by ${originalQuantity} (from ${currentStock} to ${currentStock - originalQuantity})`);
       }
     }
-  }, [formData.status, originalStatus, selectedProduct, sale]);
+  }, [formData.status, originalStatus, selectedProduct, purchase, formData.totalCost]);
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
     setFormData((prev) => ({
       ...prev,
       itemName: product.name,
+      itemPrice: (product.averageCost ?? 0).toString(), // Use average cost from purchases
     }));
     setSearchQuery(product.name);
     setShowDropdown(false);
+    setStockChangeInfo("");
   };
 
   const handleInputChange = (
@@ -214,72 +208,57 @@ export default function EditSaleDialog({
     setLoading(true);
 
     try {
-      if (!sale || !sale.id) {
-        throw new Error("Sale ID is required");
+      if (!purchase || !purchase.id) {
+        throw new Error("Purchase ID is required");
       }
 
-      // Validate stock availability for completed sales
-      const newQuantity = Number(formData.items);
-      const quantityChange = newQuantity - originalQuantity;
-      
-      if (formData.status === "completed" && selectedProduct) {
-        let stockToReduce = 0;
-        
-        if (originalStatus !== "completed" && formData.status === "completed") {
-          // First time completing - reduce by full quantity
-          stockToReduce = newQuantity;
-        } else if (originalStatus === "completed" && formData.status === "completed") {
-          // Still completed - adjust by quantity change
-          stockToReduce = quantityChange;
-        }
-        
-        if (stockToReduce > 0 && stockToReduce > selectedProduct.stock) {
-          alert(
-            `Insufficient stock! Only ${selectedProduct.stock} items available. Please reduce the quantity.`
-          );
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Update the sale
-      await updateSale(sale.id, {
+      // Update purchase
+      await updatePurchase(purchase.id, {
         date: new Date(formData.date),
         itemName: formData.itemName,
+        supplier: formData.supplier,
         items: Number(formData.items),
-        totalAmount: Number(formData.totalAmount),
-        payment: formData.payment,
+        itemPrice: Number(formData.itemPrice),
+        totalCost: Number(formData.totalCost),
         status: formData.status,
       });
 
       // Update product stock based on status and quantity changes
       if (selectedProduct) {
-        let newStock = selectedProduct.stock;
+        let stockChange = 0;
         
-        if (originalStatus !== "completed" && formData.status === "completed") {
-          // Changing to completed - reduce stock
-          newStock = selectedProduct.stock - newQuantity;
-        } else if (originalStatus === "completed" && formData.status !== "completed") {
-          // Changing from completed - restore stock
-          newStock = selectedProduct.stock + originalQuantity;
-        } else if (originalStatus === "completed" && formData.status === "completed") {
-          // Still completed - adjust by quantity change
-          newStock = selectedProduct.stock - quantityChange;
+        if (originalStatus !== "received" && formData.status === "received") {
+          // First time receiving - add by new quantity
+          stockChange = Number(formData.items);
+        } else if (originalStatus === "received" && formData.status === "received") {
+          // Still received - adjust by quantity change
+          stockChange = Number(formData.items) - originalQuantity;
+        } else if (originalStatus === "received" && formData.status !== "received") {
+          // Changing from received - restore original quantity
+          stockChange = -originalQuantity;
         }
         
+        const newStock = selectedProduct.stock + stockChange;
         const newStatus = newStock <= 10 ? "low_stock" : "active";
+        
+        // Calculate new average cost
+        const currentTotalCost = selectedProduct.averageCost * selectedProduct.stock;
+        const purchaseCost = Number(formData.totalCost);
+        const newTotalCost = currentTotalCost + purchaseCost;
+        const newAverageCost = newTotalCost / newStock;
         
         await updateProduct(selectedProduct.id!, {
           stock: newStock,
+          averageCost: newAverageCost,
           status: newStatus,
         });
       }
 
       onClose();
-      onSaleUpdated();
+      onPurchaseUpdated();
     } catch (error) {
-      console.error("Error updating sale:", error);
-      alert("Failed to update sale. Please try again.");
+      console.error("Error updating purchase:", error);
+      alert("Failed to update purchase. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -289,7 +268,7 @@ export default function EditSaleDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Sale</DialogTitle>
+          <DialogTitle>Edit Purchase</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -347,7 +326,7 @@ export default function EditSaleDialog({
                       <div>
                         <div className="font-medium">{product.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                          {product.category} • Avg Cost: KSh {(product.averageCost ?? 0).toLocaleString()}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -364,6 +343,20 @@ export default function EditSaleDialog({
             )}
           </div>
 
+          {/* Supplier */}
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Supplier</Label>
+            <Input
+              id="supplier"
+              name="supplier"
+              type="text"
+              placeholder="Enter supplier name"
+              value={formData.supplier}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
           {/* Items (Quantity) */}
           <div className="space-y-2">
             <Label htmlFor="items">Items (Quantity)</Label>
@@ -378,7 +371,7 @@ export default function EditSaleDialog({
             />
             {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Available stock: {selectedProduct.stock} | Original quantity: {originalQuantity}
+                Current stock: {selectedProduct.stock} | Original quantity: {originalQuantity}
               </p>
             )}
           </div>
@@ -391,54 +384,45 @@ export default function EditSaleDialog({
             </div>
           )}
 
-          {/* Stock Warning */}
-          {stockWarning && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">{stockWarning}</p>
-            </div>
-          )}
-
-          {/* Total Amount */}
+          {/* Item Price */}
           <div className="space-y-2">
-            <Label htmlFor="totalAmount">Total Amount (KSh)</Label>
+            <Label htmlFor="itemPrice">Item Price (KSh)</Label>
             <Input
-              id="totalAmount"
-              name="totalAmount"
+              id="itemPrice"
+              name="itemPrice"
               type="number"
               min="0"
               step="0.01"
-              value={formData.totalAmount}
+              value={formData.itemPrice}
               onChange={handleInputChange}
               required
             />
             {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Auto-calculated: {selectedProduct.salePrice ?? 0} × {formData.items} = KSh{" "}
-                {((selectedProduct.salePrice ?? 0) * Number(formData.items)).toLocaleString()}
+                Using average cost from purchases: KSh {(selectedProduct.averageCost ?? 0).toLocaleString()}
               </p>
             )}
           </div>
 
-          {/* Payment Method */}
+          {/* Total Cost */}
           <div className="space-y-2">
-            <Label htmlFor="payment">Payment Method</Label>
-            <Select
-              value={formData.payment}
-              onValueChange={(value: any) =>
-                setFormData((prev) => ({ ...prev, payment: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="M-Pesa">M-Pesa</SelectItem>
-                <SelectItem value="Card">Card</SelectItem>
-                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="totalCost">Total Cost (KSh)</Label>
+            <Input
+              id="totalCost"
+              name="totalCost"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.totalCost}
+              onChange={handleInputChange}
+              required
+            />
+            {formData.itemPrice && formData.items && (
+              <p className="text-xs text-muted-foreground">
+                Auto-calculated: {Number(formData.itemPrice)} × {formData.items} = KSh{" "}
+                {(Number(formData.itemPrice) * Number(formData.items)).toLocaleString()}
+              </p>
+            )}
           </div>
 
           {/* Status */}
@@ -454,13 +438,13 @@ export default function EditSaleDialog({
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="received">Received</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Original status: {originalStatus}
+              Original status: {originalStatus} • Stock is only added when status is "Received"
             </p>
           </div>
 
@@ -468,11 +452,8 @@ export default function EditSaleDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={loading || (stockWarning !== "" && formData.status === "completed")}
-            >
-              {loading ? "Updating..." : "Update Sale"}
+            <Button type="submit" disabled={loading}>
+              {loading ? "Updating..." : "Update Purchase"}
             </Button>
           </DialogFooter>
         </form>

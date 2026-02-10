@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Info } from "lucide-react";
 import {
   getCategories,
   addCategory,
@@ -70,7 +70,6 @@ export default function Products() {
   const [formData, setFormData] = useState({
     name: "",
     category: "",
-    costPrice: "",
     salePrice: "",
     stock: "",
   });
@@ -135,9 +134,9 @@ export default function Products() {
     await addProduct({
       name: formData.name,
       category: formData.category,
-      costPrice: Number(formData.costPrice),
       salePrice: Number(formData.salePrice),
       stock: Number(formData.stock),
+      averageCost: 0, // Will be updated from purchases
       status: Number(formData.stock) <= 10 ? "low_stock" : "active",
       createdAt: new Date(),
     });
@@ -152,7 +151,6 @@ export default function Products() {
     await updateProduct(editingProduct.id, {
       name: formData.name,
       category: formData.category,
-      costPrice: Number(formData.costPrice),
       salePrice: Number(formData.salePrice),
       stock: Number(formData.stock),
       status: Number(formData.stock) <= 10 ? "low_stock" : "active",
@@ -206,7 +204,6 @@ export default function Products() {
     setFormData({
       name: "",
       category: "",
-      costPrice: "",
       salePrice: "",
       stock: "",
     });
@@ -235,7 +232,6 @@ export default function Products() {
     setFormData({
       name: product.name,
       category: product.category,
-      costPrice: product.costPrice.toString(),
       salePrice: product.salePrice.toString(),
       stock: product.stock.toString(),
     });
@@ -434,7 +430,7 @@ export default function Products() {
                     <TableHead className="hidden sm:table-cell">
                       Category
                     </TableHead>
-                    <TableHead>Cost Price</TableHead>
+                    <TableHead>Average Cost</TableHead>
                     <TableHead>Sale Price</TableHead>
                     <TableHead className="hidden md:table-cell">
                       Stock
@@ -456,7 +452,7 @@ export default function Products() {
                       </TableCell>
 
                       <TableCell>
-                        KSh {Number(product.costPrice).toLocaleString()}
+                        KSh {Number(product.averageCost).toLocaleString()}
                       </TableCell>
 
                       <TableCell>
@@ -506,7 +502,6 @@ export default function Products() {
             </div>
           )}
         </CardContent>
-
       </Card>
 
       {/* ➕ / ✏️ Add/Edit Product Modal */}
@@ -535,9 +530,19 @@ export default function Products() {
                 </option>
               ))}
             </select>
-            <Input name="costPrice" type="number" placeholder="Cost Price" value={formData.costPrice} onChange={handleChange} />
             <Input name="salePrice" type="number" placeholder="Sale Price" value={formData.salePrice} onChange={handleChange} />
             <Input name="stock" type="number" placeholder="Initial Stock" value={formData.stock} onChange={handleChange} />
+            
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium">Average Cost</p>
+                <p className="text-xs mt-1">
+                  Average cost is automatically calculated from purchase history. 
+                  It will be updated when you add purchases for this product.
+                </p>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>

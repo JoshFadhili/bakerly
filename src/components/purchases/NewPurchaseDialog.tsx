@@ -18,34 +18,35 @@ import {
 } from "@/components/ui/select";
 import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
-import { addSale } from "@/services/salesService";
-import { Search, Calendar, AlertCircle } from "lucide-react";
+import { addPurchase } from "@/services/purchaseService";
+import { Search, Calendar, AlertCircle, Info } from "lucide-react";
 
-interface NewSaleDialogProps {
+interface NewPurchaseDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaleAdded: () => void;
+  onPurchaseAdded: () => void;
 }
 
-export default function NewSaleDialog({
+export default function NewPurchaseDialog({
   isOpen,
   onClose,
-  onSaleAdded,
-}: NewSaleDialogProps) {
+  onPurchaseAdded,
+}: NewPurchaseDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stockWarning, setStockWarning] = useState("");
+  const [stockInfo, setStockInfo] = useState("");
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     itemName: "",
+    supplier: "",
     items: "1",
-    totalAmount: "",
-    payment: "Cash" as "Cash" | "M-Pesa" | "Card" | "Bank Transfer",
-    status: "completed" as "completed" | "pending" | "cancelled",
+    itemPrice: "",
+    totalCost: "",
+    status: "received" as "received" | "pending" | "cancelled",
   });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -91,41 +92,40 @@ export default function NewSaleDialog({
     }
   }, [searchQuery, products]);
 
-  // Auto-calculate total amount when product and quantity change
+  // Auto-calculate total cost when item price and quantity change
   useEffect(() => {
-    if (selectedProduct && formData.items) {
-      const calculatedAmount = selectedProduct.salePrice * Number(formData.items);
+    if (formData.itemPrice && formData.items) {
+      const calculatedCost = Number(formData.itemPrice) * Number(formData.items);
       setFormData((prev) => ({
         ...prev,
-        totalAmount: calculatedAmount.toString(),
+        totalCost: calculatedCost.toString(),
       }));
 
-      // Check stock availability (only for completed sales)
-      if (formData.status === "completed") {
-        const requestedQuantity = Number(formData.items);
-        if (requestedQuantity > selectedProduct.stock) {
-          setStockWarning(
-            `Warning: Only ${selectedProduct.stock} items in stock. You're trying to sell ${requestedQuantity}.`
-          );
-        } else {
-          setStockWarning("");
-        }
+      // Check stock info for inventory alignment
+      if (selectedProduct && formData.status === "received") {
+        const currentStock = selectedProduct.stock;
+        const itemsToAdd = Number(formData.items);
+        const newStock = currentStock + itemsToAdd;
+        
+        setStockInfo(
+          `Current stock: ${currentStock} → New stock: ${newStock} (+${itemsToAdd})`
+        );
       } else {
-        setStockWarning("");
+        setStockInfo("");
       }
     }
-  }, [selectedProduct, formData.items, formData.status]);
+  }, [formData.itemPrice, formData.items, formData.status, selectedProduct]);
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
     setFormData((prev) => ({
       ...prev,
       itemName: product.name,
-      items: "1",
+      itemPrice: (product.averageCost ?? 0).toString(), // Use average cost from purchases
     }));
     setSearchQuery(product.name);
     setShowDropdown(false);
-    setStockWarning("");
+    setStockInfo("");
   };
 
   const handleInputChange = (
@@ -143,33 +143,33 @@ export default function NewSaleDialog({
     setLoading(true);
 
     try {
-      // Validate stock availability (only for completed sales)
-      if (formData.status === "completed" && selectedProduct && Number(formData.items) > selectedProduct.stock) {
-        alert(
-          `Insufficient stock! Only ${selectedProduct.stock} items available. Please reduce the quantity.`
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Add the sale
-      await addSale({
+      // Add purchase
+      await addPurchase({
         date: new Date(formData.date),
         itemName: formData.itemName,
+        supplier: formData.supplier,
         items: Number(formData.items),
-        totalAmount: Number(formData.totalAmount),
-        payment: formData.payment,
+        itemPrice: Number(formData.itemPrice),
+        totalCost: Number(formData.totalCost),
         status: formData.status,
         createdAt: new Date(),
       });
 
-      // Update product stock (only reduce for completed sales)
-      if (selectedProduct && formData.status === "completed") {
-        const newStock = selectedProduct.stock - Number(formData.items);
+      // Update product stock if purchase is received
+      if (selectedProduct && formData.status === "received") {
+        const currentStock = selectedProduct.stock;
+        const itemsToAdd = Number(formData.items);
+        const newStock = currentStock + itemsToAdd;
         const newStatus = newStock <= 10 ? "low_stock" : "active";
-        
+
+        // Calculate new average cost
+        const currentTotalCost = selectedProduct.averageCost * currentStock;
+        const newTotalCost = Number(formData.totalCost) + currentTotalCost;
+        const newAverageCost = newTotalCost / newStock;
+
         await updateProduct(selectedProduct.id!, {
           stock: newStock,
+          averageCost: newAverageCost,
           status: newStatus,
         });
       }
@@ -178,21 +178,22 @@ export default function NewSaleDialog({
       setFormData({
         date: new Date().toISOString().split('T')[0],
         itemName: "",
+        supplier: "",
         items: "1",
-        totalAmount: "",
-        payment: "Cash",
-        status: "completed",
+        itemPrice: "",
+        totalCost: "",
+        status: "received",
       });
       setSelectedProduct(null);
       setSearchQuery("");
       setShowDropdown(false);
-      setStockWarning("");
+      setStockInfo("");
 
       onClose();
-      onSaleAdded();
+      onPurchaseAdded();
     } catch (error) {
-      console.error("Error adding sale:", error);
-      alert("Failed to add sale. Please try again.");
+      console.error("Error adding purchase:", error);
+      alert("Failed to add purchase. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -202,7 +203,7 @@ export default function NewSaleDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Sale</DialogTitle>
+          <DialogTitle>New Purchase</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -254,31 +255,17 @@ export default function NewSaleDialog({
                   filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className={`px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center ${
-                        product.stock === 0 ? "opacity-50" : ""
-                      }`}
-                      onClick={() => {
-                        if (product.stock > 0) {
-                          handleProductSelect(product);
-                        }
-                      }}
+                      className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                      onClick={() => handleProductSelect(product)}
                     >
                       <div>
                         <div className="font-medium">{product.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                          {product.category} • Avg Cost: KSh {(product.averageCost ?? 0).toLocaleString()}
                         </div>
                       </div>
-                      <div
-                        className={`text-xs ${
-                          product.stock === 0
-                            ? "text-red-500 font-medium"
-                            : product.stock <= 10
-                            ? "text-yellow-600"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {product.stock === 0 ? "Out of Stock" : `Stock: ${product.stock}`}
+                      <div className="text-xs text-muted-foreground">
+                        Stock: {product.stock}
                       </div>
                     </div>
                   ))
@@ -289,6 +276,20 @@ export default function NewSaleDialog({
                 )}
               </div>
             )}
+          </div>
+
+          {/* Supplier */}
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Supplier</Label>
+            <Input
+              id="supplier"
+              name="supplier"
+              type="text"
+              placeholder="Enter supplier name"
+              value={formData.supplier}
+              onChange={handleInputChange}
+              required
+            />
           </div>
 
           {/* Items (Quantity) */}
@@ -305,59 +306,58 @@ export default function NewSaleDialog({
             />
             {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Available stock: {selectedProduct.stock}
+                Current stock: {selectedProduct.stock}
               </p>
             )}
           </div>
 
-          {/* Stock Warning */}
-          {stockWarning && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">{stockWarning}</p>
+          {/* Stock Info */}
+          {stockInfo && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-blue-800">{stockInfo}</p>
             </div>
           )}
 
-          {/* Total Amount */}
+          {/* Item Price */}
           <div className="space-y-2">
-            <Label htmlFor="totalAmount">Total Amount (KSh)</Label>
+            <Label htmlFor="itemPrice">Item Price (KSh)</Label>
             <Input
-              id="totalAmount"
-              name="totalAmount"
+              id="itemPrice"
+              name="itemPrice"
               type="number"
               min="0"
               step="0.01"
-              value={formData.totalAmount}
+              value={formData.itemPrice}
               onChange={handleInputChange}
               required
             />
             {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Auto-calculated: {selectedProduct.salePrice ?? 0} × {formData.items} = KSh{" "}
-                {((selectedProduct.salePrice ?? 0) * Number(formData.items)).toLocaleString()}
+                Using average cost from purchases: KSh {(selectedProduct.averageCost ?? 0).toLocaleString()}
               </p>
             )}
           </div>
 
-          {/* Payment Method */}
+          {/* Total Cost */}
           <div className="space-y-2">
-            <Label htmlFor="payment">Payment Method</Label>
-            <Select
-              value={formData.payment}
-              onValueChange={(value: any) =>
-                setFormData((prev) => ({ ...prev, payment: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="M-Pesa">M-Pesa</SelectItem>
-                <SelectItem value="Card">Card</SelectItem>
-                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="totalCost">Total Cost (KSh)</Label>
+            <Input
+              id="totalCost"
+              name="totalCost"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.totalCost}
+              onChange={handleInputChange}
+              required
+            />
+            {formData.itemPrice && formData.items && (
+              <p className="text-xs text-muted-foreground">
+                Auto-calculated: {Number(formData.itemPrice)} × {formData.items} = KSh{" "}
+                {(Number(formData.itemPrice) * Number(formData.items)).toLocaleString()}
+              </p>
+            )}
           </div>
 
           {/* Status */}
@@ -373,13 +373,13 @@ export default function NewSaleDialog({
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="received">Received</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Note: Stock is only reduced for completed sales
+              Note: Stock is only added when status is "Received"
             </p>
           </div>
 
@@ -387,11 +387,8 @@ export default function NewSaleDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={loading || (stockWarning !== "" && formData.status === "completed")}
-            >
-              {loading ? "Adding..." : "Add Sale"}
+            <Button type="submit" disabled={loading}>
+              {loading ? "Adding..." : "Add Purchase"}
             </Button>
           </DialogFooter>
         </form>

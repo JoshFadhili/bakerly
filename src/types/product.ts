@@ -1,11 +1,11 @@
 export interface Product {
-  id?: string
-  name: string
-  category: string
-  costPrice: number
-  salePrice: number
-  stock: number
-  status: "active" | "low_stock"
-  createdAt: Date
-   updatedAt?: Date; // ✅ ADD THIS
+  id?: string;
+  name: string;
+  category: string;
+  salePrice: number;
+  stock: number;
+  averageCost: number; // Average cost calculated from purchases
+  status: "active" | "low_stock";
+  createdAt: Date;
+  updatedAt?: Date;
 }

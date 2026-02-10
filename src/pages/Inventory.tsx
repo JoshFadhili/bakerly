@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -22,13 +29,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   getInventory,
   getLowStockItems,
   getInventoryByCategory,
@@ -37,12 +37,14 @@ import {
 } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
+import { getProducts } from "@/services/productService";
 
 export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -55,35 +57,39 @@ export default function Inventory() {
   const [adjustStockQuantity, setAdjustStockQuantity] = useState("");
   const [adjustmentReason, setAdjustmentReason] = useState("");
 
-  // Fetch inventory data
-  const fetchInventory = async () => {
+  // Fetch inventory and products
+  const fetchData = async () => {
     try {
-      let data;
-      if (categoryFilter !== "all") {
-        data = await getInventoryByCategory(categoryFilter);
-      } else if (filter === "low") {
-        data = await getLowStockItems();
-      } else {
-        data = await getInventory();
-      }
-      setInventory(data);
+      const [inventoryList, productsList] = await Promise.all([
+        getInventory(),
+        getProducts(),
+      ]);
+
+      setInventory(inventoryList);
+      setProducts(productsList);
     } catch (error) {
-      console.error("Error loading inventory:", error);
+      console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchInventory();
-  }, [filter, categoryFilter]);
+    fetchData();
+  }, []);
 
-  // Filter inventory based on search query
+  // Filter inventory based on search query and filters
   const filteredInventory = inventory.filter((item) => {
     const matchesSearch = item.name
       ?.toLowerCase()
       .includes(searchQuery.toLowerCase());
-    return matchesSearch;
+
+    const matchesFilter = filter === "all" || 
+      (filter === "low" && item.stock < 10);
+
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+
+    return matchesSearch && matchesFilter && matchesCategory;
   });
 
   // Get unique categories
@@ -93,13 +99,13 @@ export default function Inventory() {
 
   // Calculate stats
   const totalProducts = inventory.length;
-  const totalStockValue = inventory.reduce(
-    (acc, item) => acc + (item.stock * item.salePrice),
-    0
-  );
-  const lowStockCount = inventory.filter(
-    (item) => item.stock < 10
-  ).length;
+  const totalStock = inventory.reduce((acc, item) => acc + item.stock, 0);
+  const lowStockCount = inventory.filter((item) => item.stock < 10).length;
+  const totalStockValue = inventory.reduce((acc, item) => {
+    const product = products.find(p => p.name === item.name);
+    const avgCost = product?.averageCost || 0;
+    return acc + (item.stock * avgCost);
+  }, 0);
 
   // Handle add stock
   const handleAddStock = async () => {
@@ -113,10 +119,10 @@ export default function Inventory() {
     setIsAddStockOpen(false);
     setAddStockQuantity("");
     setSelectedItem(null);
-    fetchInventory();
+    fetchData();
   };
 
-  // Handle stock adjustment
+  // Handle adjust stock
   const handleAdjustStock = async () => {
     if (!selectedItem || !adjustStockQuantity) return;
 
@@ -130,7 +136,7 @@ export default function Inventory() {
     setAdjustStockQuantity("");
     setAdjustmentReason("");
     setSelectedItem(null);
-    fetchInventory();
+    fetchData();
   };
 
   // Export to CSV
@@ -139,16 +145,18 @@ export default function Inventory() {
       "Product Name",
       "Category",
       "Stock In Hand",
-      "Cost Price",
+      "Average Cost",
       "Sale Price",
       "Stock Value",
       "Status",
       "Last Updated",
     ];
-
     const csvContent = [
       headers.join(","),
       ...filteredInventory.map((item) => {
+        const product = products.find(p => p.name === item.name);
+        const avgCost = product?.averageCost || 0;
+        const stockValue = item.stock * avgCost;
         const isLowStock = item.stock < 10;
         const status = isLowStock ? "Low Stock" : "In Stock";
         const lastUpdated = item.updatedAt
@@ -158,14 +166,13 @@ export default function Inventory() {
               ? item.updatedAt.toDate().toLocaleDateString()
               : new Date(item.updatedAt).toLocaleDateString()
           : "N/A";
-        const stockValue = item.stock * item.salePrice;
 
         return [
           `"${item.name || ""}"`,
           `"${item.category || ""}"`,
           item.stock || 0,
-          item.costPrice || 0,
-          item.salePrice || 0,
+          avgCost || 0,
+          product?.salePrice || 0,
           stockValue || 0,
           status,
           lastUpdated,
@@ -199,16 +206,14 @@ export default function Inventory() {
         </Card>
         <Card className="border-l-4 border-l-erp-green">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Total Stock Value</p>
-            <p className="text-2xl font-bold">
-              KSh {totalStockValue.toLocaleString()}
-            </p>
+            <p className="text-sm text-muted-foreground">Total Stock</p>
+            <p className="text-2xl font-bold">{totalStock} pcs</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-orange">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Categories</p>
-            <p className="text-2xl font-bold">{categories.length}</p>
+            <p className="text-sm text-muted-foreground">Stock Value</p>
+            <p className="text-2xl font-bold">KSh {totalStockValue.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-red">
@@ -231,7 +236,11 @@ export default function Inventory() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+
+            <Select
+              value={categoryFilter}
+              onValueChange={setCategoryFilter}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -244,8 +253,7 @@ export default function Inventory() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -255,6 +263,9 @@ export default function Inventory() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex gap-2">
             <Button
               variant="success"
               size="sm"
@@ -267,7 +278,7 @@ export default function Inventory() {
               disabled={filteredInventory.length !== 1}
             >
               <Plus className="h-4 w-4" />
-              Add Stock
+              <span className="hidden sm:inline">Add Stock</span>
             </Button>
             <Button
               variant="outline"
@@ -281,50 +292,51 @@ export default function Inventory() {
               disabled={filteredInventory.length !== 1}
             >
               <Minus className="h-4 w-4" />
-              Adjust Stock
+              <span className="hidden sm:inline">Adjust Stock</span>
             </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4" />
-              Export
+              <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">Loading inventory...</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                 <TableHeader>
+                <TableHeader>
                   <TableRow>
                     <TableHead>Product Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Category</TableHead>
                     <TableHead>Stock In Hand</TableHead>
-                    <TableHead className="hidden md:table-cell">Cost Price</TableHead>
-                    <TableHead className="hidden md:table-cell">Sale Price</TableHead>
+                    <TableHead className="hidden md:table-cell">Average Cost</TableHead>
+                    <TableHead className="hidden lg:table-cell">Sale Price</TableHead>
                     <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {filteredInventory.map((item) => {
+                    const product = products.find(p => p.name === item.name);
+                    const avgCost = product?.averageCost || 0;
+                    const stockValue = item.stock * avgCost;
                     const isLowStock = item.stock < 10;
-                    const stockValue = item.stock * item.salePrice;
+
                     return (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {item.category}
-                        </TableCell>
-                        <TableCell>
-                          {item.stock} pcs
-                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
+                        <TableCell>{item.stock} pcs</TableCell>
                         <TableCell className="hidden md:table-cell">
-                          KSh {item.costPrice?.toLocaleString()}
+                          KSh {avgCost.toLocaleString()}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          KSh {item.salePrice?.toLocaleString()}
+                        <TableCell className="hidden lg:table-cell">
+                          KSh {product?.salePrice?.toLocaleString() || "N/A"}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           KSh {stockValue.toLocaleString()}
@@ -393,20 +405,16 @@ export default function Inventory() {
               <Input
                 type="number"
                 placeholder="Enter quantity"
+                min="1"
                 value={addStockQuantity}
                 onChange={(e) => setAddStockQuantity(e.target.value)}
-                min="1"
               />
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setIsAddStockOpen(false);
-                setAddStockQuantity("");
-                setSelectedItem(null);
-              }}
+              onClick={() => setIsAddStockOpen(false)}
             >
               Cancel
             </Button>
@@ -441,6 +449,7 @@ export default function Inventory() {
             <div>
               <label className="text-sm font-medium">Reason (Optional)</label>
               <Input
+                type="text"
                 placeholder="e.g., Damaged goods, Data correction, etc."
                 value={adjustmentReason}
                 onChange={(e) => setAdjustmentReason(e.target.value)}
@@ -450,12 +459,7 @@ export default function Inventory() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setIsAdjustStockOpen(false);
-                setAdjustStockQuantity("");
-                setAdjustmentReason("");
-                setSelectedItem(null);
-              }}
+              onClick={() => setIsAdjustStockOpen(false)}
             >
               Cancel
             </Button>

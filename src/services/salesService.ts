@@ -12,7 +12,7 @@ import {
 import { db } from "../lib/firebase";
 import { Sale } from "../types/sale";
 import { deleteDoc } from "firebase/firestore";
-import { getPurchasesByProductName, updateBatchQuantity, addPurchase } from "./purchaseService";
+import { getPurchasesByProductName, updateBatchQuantity, addPurchase, restoreBatchQuantitiesForProduct } from "./purchaseService";
 import { updateInventoryFromSale, adjustStock } from "./inventoryService";
 
 // 🔗 Collection reference
@@ -58,7 +58,7 @@ export const applyFIFOInventoryDeduction = async (itemName: string, quantity: nu
       if (remainingQuantity <= 0) break;
       
       // Check how many items are remaining in this batch
-      const availableInBatch = purchase.itemsRemaining || purchase.items;
+      const availableInBatch = purchase.itemsRemaining !== undefined ? purchase.itemsRemaining : purchase.items;
       
       if (availableInBatch > 0) {
         // Calculate how much to deduct from this batch
@@ -99,6 +99,9 @@ export const updateInventoryFromSaleEdit = async (
     if (originalStatus === "completed") {
       // Restore inventory stock
       await adjustStockByName(itemName, originalQuantity, "Sale edit - restore original quantity");
+      
+      // Restore batch quantities using reverse FIFO (newest batches first)
+      await restoreBatchQuantitiesForProduct(itemName, originalQuantity);
     }
 
     // If new status is completed, deduct the new quantity
@@ -247,11 +250,10 @@ const restoreInventoryFromSale = async (
     // Restore inventory stock
     await adjustStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory");
 
-    // Note: We don't restore the batch quantities because:
-    // 1. FIFO is designed to be one-way (deduct oldest first)
-    // 2. Restoring batches would require complex logic to track which specific batches were used
-    // 3. The inventory stock is the authoritative source for total stock
-    console.log(`Restored ${quantity} items to inventory for ${itemName}`);
+    // Restore batch quantities using reverse FIFO (newest batches first)
+    await restoreBatchQuantitiesForProduct(itemName, quantity);
+
+    console.log(`Restored ${quantity} items to inventory and batches for ${itemName}`);
   } catch (error) {
     console.error("Error restoring inventory from sale:", error);
     throw new Error("Failed to restore inventory from sale. Please try again.");

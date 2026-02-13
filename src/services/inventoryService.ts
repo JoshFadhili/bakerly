@@ -9,12 +9,15 @@ import {
   where,
   orderBy,
   Timestamp,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Purchase } from "@/types/purchase";
 
 const productsRef = collection(db, "products");
 const inventoryRef = collection(db, "inventory");
 const stockAdjustmentsRef = collection(db, "stockAdjustments");
+const purchasesRef = collection(db, "purchases");
 
 // 🔍 Helper function to get product category by name
 export const getProductCategoryByName = async (productName: string): Promise<string | null> => {
@@ -340,5 +343,148 @@ export const updateInventoryFromSale = async (
   } catch (error) {
     console.error("Error updating inventory from sale:", error);
     throw new Error("Failed to update inventory from sale. Please try again.");
+  }
+};
+
+// 🔄 Get batches for a product (for stock adjustment)
+export const getBatchesForProduct = async (productName: string): Promise<Purchase[]> => {
+  try {
+    const q = query(
+      purchasesRef,
+      where("status", "==", "received")
+    );
+    const snapshot = await getDocs(q);
+
+    const batches: Purchase[] = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        date: data.date instanceof Timestamp
+          ? data.date.toDate()
+          : data.date,
+      } as Purchase;
+    });
+
+    // Filter for exact match (case-insensitive and trimmed)
+    const filtered = batches.filter((batch) =>
+      batch.itemName?.trim().toLowerCase() === productName.trim().toLowerCase()
+    );
+
+    // Sort by date ascending (oldest first)
+    return filtered.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+      const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+  } catch (error) {
+    console.error("Error fetching batches for product:", error);
+    throw new Error("Failed to fetch batches for product. Please try again.");
+  }
+};
+
+// 🔄 Adjust stock in both inventory and batch (connected stock adjustment)
+export const adjustStockWithBatch = async (
+  inventoryId: string,
+  adjustment: number,
+  batchId?: string,
+  reason?: string
+) => {
+  try {
+    // Get the inventory item
+    const inventorySnapshot = await getDocs(query(inventoryRef, where("__name__", "==", inventoryId)));
+    if (inventorySnapshot.empty) {
+      throw new Error("Inventory item not found");
+    }
+
+    const currentInventoryData = inventorySnapshot.docs[0].data();
+    const productName = currentInventoryData.name;
+    const currentStock = currentInventoryData.stock || 0;
+
+    // Calculate new stock
+    const newStock = Math.max(0, currentStock + adjustment);
+    const newStatus = newStock <= 10 ? "low_stock" : "active";
+
+    // Update inventory
+    await updateDoc(doc(db, "inventory", inventoryId), {
+      stock: newStock,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+    });
+
+    // If batchId is provided, update the batch
+    if (batchId) {
+      const batchRef = doc(db, "purchases", batchId);
+      const batchDoc = await getDoc(batchRef);
+
+      if (batchDoc.exists()) {
+        const batchData = batchDoc.data();
+        const currentItemsRemaining = batchData.itemsRemaining !== undefined ? batchData.itemsRemaining : batchData.items;
+        const totalItems = batchData.items;
+
+        // Calculate new items remaining
+        let newItemsRemaining = currentItemsRemaining + adjustment;
+
+        // Ensure it doesn't go below 0 or above total
+        newItemsRemaining = Math.max(0, Math.min(totalItems, newItemsRemaining));
+
+        await updateDoc(batchRef, {
+          itemsRemaining: newItemsRemaining,
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+
+    // Record the adjustment
+    await addStockAdjustment({
+      productId: inventoryId,
+      productName: productName,
+      adjustmentType: "adjust",
+      quantity: adjustment,
+      previousStock: currentStock,
+      newStock: newStock,
+      reason: reason,
+      batchId: batchId,
+    });
+  } catch (error) {
+    console.error("Error adjusting stock with batch:", error);
+    throw new Error("Failed to adjust stock with batch. Please try again.");
+  }
+};
+
+// 🔄 Recalculate inventory stock from batches (sync inventory with batch data)
+export const recalculateInventoryFromBatches = async (inventoryId: string) => {
+  try {
+    // Get the inventory item
+    const inventorySnapshot = await getDocs(query(inventoryRef, where("__name__", "==", inventoryId)));
+    if (inventorySnapshot.empty) {
+      throw new Error("Inventory item not found");
+    }
+
+    const inventoryData = inventorySnapshot.docs[0].data();
+    const productName = inventoryData.name;
+
+    // Get all batches for this product
+    const batches = await getBatchesForProduct(productName);
+
+    // Calculate total stock from all batches
+    const totalStock = batches.reduce((sum, batch: any) => {
+      const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
+      return sum + itemsRemaining;
+    }, 0);
+
+    // Update inventory with calculated stock
+    const newStatus = totalStock <= 10 ? "low_stock" : "active";
+
+    await updateDoc(doc(db, "inventory", inventoryId), {
+      stock: totalStock,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+    });
+
+    return totalStock;
+  } catch (error) {
+    console.error("Error recalculating inventory from batches:", error);
+    throw new Error("Failed to recalculate inventory from batches. Please try again.");
   }
 };

@@ -373,7 +373,7 @@ export const updateBatchQuantity = async (purchaseId: string, quantitySold: numb
     }
 
     const currentData = purchaseDoc.data() as Omit<Purchase, "id">;
-    const newItemsRemaining = Math.max(0, (currentData.itemsRemaining || currentData.items) - quantitySold);
+    const newItemsRemaining = Math.max(0, (currentData.itemsRemaining !== undefined ? currentData.itemsRemaining : currentData.items) - quantitySold);
 
     await updateDoc(purchaseRef, {
       itemsRemaining: newItemsRemaining,
@@ -382,5 +382,76 @@ export const updateBatchQuantity = async (purchaseId: string, quantitySold: numb
   } catch (error) {
     console.error("Error updating batch quantity:", error);
     throw new Error("Failed to update batch quantity. Please try again.");
+  }
+};
+
+// 🔄 RESTORE BATCH QUANTITY (when sale is cancelled or status changes from completed)
+export const restoreBatchQuantity = async (purchaseId: string, quantityToRestore: number): Promise<void> => {
+  try {
+    const purchaseRef = doc(db, "purchases", purchaseId);
+
+    // First, get the current purchase
+    const purchaseDoc = await getDoc(purchaseRef);
+
+    if (!purchaseDoc.exists()) {
+      throw new Error("Purchase not found");
+    }
+
+    const currentData = purchaseDoc.data() as Omit<Purchase, "id">;
+    const currentItemsRemaining = currentData.itemsRemaining !== undefined ? currentData.itemsRemaining : currentData.items;
+    const totalItems = currentData.items;
+
+    // Calculate new items remaining, but don't exceed the original total
+    const newItemsRemaining = Math.min(totalItems, currentItemsRemaining + quantityToRestore);
+
+    await updateDoc(purchaseRef, {
+      itemsRemaining: newItemsRemaining,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error restoring batch quantity:", error);
+    throw new Error("Failed to restore batch quantity. Please try again.");
+  }
+};
+
+// 🔄 RESTORE BATCH QUANTITIES FOR A PRODUCT (reverse FIFO - restore to newest batches first)
+export const restoreBatchQuantitiesForProduct = async (itemName: string, quantityToRestore: number): Promise<number> => {
+  try {
+    // Get all received purchases for this product, ordered by date (newest first for reverse FIFO)
+    const purchases = await getPurchasesByProductName(itemName);
+    
+    // Reverse to get newest first for restoration
+    const newestFirst = [...purchases].reverse();
+    
+    let remainingQuantity = quantityToRestore;
+    let totalRestored = 0;
+    
+    for (const purchase of newestFirst) {
+      if (remainingQuantity <= 0) break;
+      
+      const currentItemsRemaining = purchase.itemsRemaining !== undefined ? purchase.itemsRemaining : purchase.items;
+      const totalItems = purchase.items;
+      const availableSpace = totalItems - currentItemsRemaining;
+      
+      if (availableSpace > 0) {
+        // Calculate how much to restore to this batch
+        const restoreAmount = Math.min(remainingQuantity, availableSpace);
+        
+        // Update the batch quantity
+        await restoreBatchQuantity(purchase.id!, restoreAmount);
+        
+        totalRestored += restoreAmount;
+        remainingQuantity -= restoreAmount;
+      }
+    }
+    
+    if (remainingQuantity > 0) {
+      console.warn(`Warning: Could not restore all ${remainingQuantity} items for ${itemName}. Batches may have been modified or deleted.`);
+    }
+    
+    return totalRestored;
+  } catch (error) {
+    console.error("Error restoring batch quantities for product:", error);
+    throw new Error("Failed to restore batch quantities. Please try again.");
   }
 };

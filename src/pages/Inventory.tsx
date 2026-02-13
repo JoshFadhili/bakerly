@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, AlertTriangle, Plus, Minus, Eye } from "lucide-react";
+import { Search, Download, AlertTriangle, Edit, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,11 +32,13 @@ import {
   getInventory,
   getLowStockItems,
   getInventoryByCategory,
-  addStock,
-  adjustStock,
+  adjustStockWithBatch,
+  getBatchesForProduct,
+  recalculateInventoryFromBatches,
 } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
+import { Purchase } from "@/types/purchase";
 import { getProducts } from "@/services/productService";
 import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
 
@@ -49,16 +51,16 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
 
   // Modal states
-  const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false);
   const [isBatchDetailsOpen, setIsBatchDetailsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [selectedProductForBatches, setSelectedProductForBatches] = useState<string>("");
 
   // Form states
-  const [addStockQuantity, setAddStockQuantity] = useState("");
   const [adjustStockQuantity, setAdjustStockQuantity] = useState("");
   const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
+  const [batches, setBatches] = useState<Purchase[]>([]);
 
   // Fetch inventory and products
   const fetchData = async () => {
@@ -110,36 +112,41 @@ export default function Inventory() {
     return acc + (item.stock * salePrice);
   }, 0);
 
-  // Handle add stock
-  const handleAddStock = async () => {
-    if (!selectedItem || !addStockQuantity) return;
-
-    await addStock(
-      selectedItem.id!,
-      Number(addStockQuantity)
-    );
-
-    setIsAddStockOpen(false);
-    setAddStockQuantity("");
-    setSelectedItem(null);
-    fetchData();
-  };
-
   // Handle adjust stock
   const handleAdjustStock = async () => {
     if (!selectedItem || !adjustStockQuantity) return;
 
-    await adjustStock(
+    await adjustStockWithBatch(
       selectedItem.id!,
       Number(adjustStockQuantity),
+      selectedBatchId || undefined,
       adjustmentReason
     );
 
     setIsAdjustStockOpen(false);
     setAdjustStockQuantity("");
     setAdjustmentReason("");
+    setSelectedBatchId("");
     setSelectedItem(null);
     fetchData();
+  };
+
+  // Fetch batches for a product
+  const fetchBatchesForProduct = async (productName: string) => {
+    try {
+      const batchesList = await getBatchesForProduct(productName);
+      setBatches(batchesList);
+
+      // Set default batch to the first batch that still has items
+      const firstBatchWithItems = batchesList.find(
+        (batch) => (batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items) > 0
+      );
+      if (firstBatchWithItems) {
+        setSelectedBatchId(firstBatchWithItems.id!);
+      }
+    } catch (error) {
+      console.error("Error fetching batches:", error);
+    }
   };
 
   // Handle view batch details
@@ -274,31 +281,18 @@ export default function Inventory() {
 
           <div className="flex gap-2">
             <Button
-              variant="success"
-              size="sm"
-              onClick={() => {
-                if (filteredInventory.length === 1) {
-                  setSelectedItem(filteredInventory[0]);
-                  setIsAddStockOpen(true);
-                }
-              }}
-              disabled={filteredInventory.length !== 1}
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Stock</span>
-            </Button>
-            <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 if (filteredInventory.length === 1) {
                   setSelectedItem(filteredInventory[0]);
                   setIsAdjustStockOpen(true);
+                  fetchBatchesForProduct(filteredInventory[0].name || "");
                 }
               }}
               disabled={filteredInventory.length !== 1}
             >
-              <Minus className="h-4 w-4" />
+              <Edit className="h-4 w-4" />
               <span className="hidden sm:inline">Adjust Stock</span>
             </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
@@ -359,27 +353,18 @@ export default function Inventory() {
                           <div className="flex justify-end gap-1">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setIsAddStockOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => {
                                 setSelectedItem(item);
                                 setIsAdjustStockOpen(true);
+                                fetchBatchesForProduct(item.name || "");
                               }}
                             >
-                              <Minus className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => handleViewBatchDetails(item)}
                             >
                               <Eye className="h-4 w-4" />
@@ -395,43 +380,6 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
-
-      {/* Add Stock Modal */}
-      <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Stock</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Product</p>
-              <p className="text-lg font-semibold">{selectedItem?.name}</p>
-              <p className="text-sm text-muted-foreground">
-                Current Stock: {selectedItem?.stock} pcs
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Quantity to Add</label>
-              <Input
-                type="number"
-                placeholder="Enter quantity"
-                min="1"
-                value={addStockQuantity}
-                onChange={(e) => setAddStockQuantity(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsAddStockOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddStock}>Add Stock</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Adjust Stock Modal */}
       <Dialog open={isAdjustStockOpen} onOpenChange={setIsAdjustStockOpen}>
@@ -457,6 +405,34 @@ export default function Inventory() {
               />
             </div>
             <div>
+              <label className="text-sm font-medium">Batch (Optional)</label>
+              <Select
+                value={selectedBatchId}
+                onValueChange={setSelectedBatchId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a batch (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {batches.length === 0 ? (
+                    <SelectItem value="none" disabled>No batches available</SelectItem>
+                  ) : (
+                    batches.map((batch) => {
+                      const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
+                      return (
+                        <SelectItem key={batch.id} value={batch.id!}>
+                          {batch.batchId} - {itemsRemaining} items remaining
+                        </SelectItem>
+                      );
+                    })
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                If no batch is selected, the adjustment will only update the inventory stock.
+              </p>
+            </div>
+            <div>
               <label className="text-sm font-medium">Reason (Optional)</label>
               <Input
                 type="text"
@@ -469,7 +445,13 @@ export default function Inventory() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsAdjustStockOpen(false)}
+              onClick={() => {
+                setIsAdjustStockOpen(false);
+                setAdjustStockQuantity("");
+                setAdjustmentReason("");
+                setSelectedBatchId("");
+                setSelectedItem(null);
+              }}
             >
               Cancel
             </Button>

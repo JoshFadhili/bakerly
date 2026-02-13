@@ -47,7 +47,7 @@ export default function BatchDetailsDialog({
   }, [isOpen, productName]);
 
   // Calculate total items across all batches
-  const totalItems = batches.reduce((sum, batch) => sum + (batch.itemsRemaining || batch.items), 0);
+  const totalItems = batches.reduce((sum, batch) => sum + (batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items), 0);
   const totalBatches = batches.length;
 
   return (
@@ -92,7 +92,7 @@ export default function BatchDetailsDialog({
                 Batch Breakdown
               </h3>
               {batches.map((batch, index) => {
-                const itemsRemaining = batch.itemsRemaining || batch.items;
+                const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
                 const isDepleted = itemsRemaining === 0;
                 const isLowStock = itemsRemaining > 0 && itemsRemaining < 10;
 

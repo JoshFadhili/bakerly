@@ -3,7 +3,6 @@ export interface InventoryItem {
   name?: string
   category?: string
   stock?: number
-  costPrice?: number
   salePrice?: number
   status?: "active" | "low_stock"
   updatedAt?: Date | any

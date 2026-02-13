@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, AlertTriangle, Plus, Minus } from "lucide-react";
+import { Search, Download, AlertTriangle, Plus, Minus, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
 import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
 import { getProducts } from "@/services/productService";
+import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
 
 export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,7 +51,9 @@ export default function Inventory() {
   // Modal states
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false);
+  const [isBatchDetailsOpen, setIsBatchDetailsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedProductForBatches, setSelectedProductForBatches] = useState<string>("");
 
   // Form states
   const [addStockQuantity, setAddStockQuantity] = useState("");
@@ -103,8 +106,8 @@ export default function Inventory() {
   const lowStockCount = inventory.filter((item) => item.stock < 10).length;
   const totalStockValue = inventory.reduce((acc, item) => {
     const product = products.find(p => p.name === item.name);
-    const avgCost = product?.averageCost || 0;
-    return acc + (item.stock * avgCost);
+    const salePrice = product?.salePrice || 0;
+    return acc + (item.stock * salePrice);
   }, 0);
 
   // Handle add stock
@@ -139,13 +142,18 @@ export default function Inventory() {
     fetchData();
   };
 
+  // Handle view batch details
+  const handleViewBatchDetails = (item: InventoryItem) => {
+    setSelectedProductForBatches(item.name || "");
+    setIsBatchDetailsOpen(true);
+  };
+
   // Export to CSV
   const exportToCSV = () => {
     const headers = [
       "Product Name",
       "Category",
       "Stock In Hand",
-      "Average Cost",
       "Sale Price",
       "Stock Value",
       "Status",
@@ -155,8 +163,8 @@ export default function Inventory() {
       headers.join(","),
       ...filteredInventory.map((item) => {
         const product = products.find(p => p.name === item.name);
-        const avgCost = product?.averageCost || 0;
-        const stockValue = item.stock * avgCost;
+        const salePrice = product?.salePrice || 0;
+        const stockValue = item.stock * salePrice;
         const isLowStock = item.stock < 10;
         const status = isLowStock ? "Low Stock" : "In Stock";
         const lastUpdated = item.updatedAt
@@ -171,7 +179,6 @@ export default function Inventory() {
           `"${item.name || ""}"`,
           `"${item.category || ""}"`,
           item.stock || 0,
-          avgCost || 0,
           product?.salePrice || 0,
           stockValue || 0,
           status,
@@ -312,7 +319,6 @@ export default function Inventory() {
                     <TableHead>Product Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Category</TableHead>
                     <TableHead>Stock In Hand</TableHead>
-                    <TableHead className="hidden md:table-cell">Average Cost</TableHead>
                     <TableHead className="hidden lg:table-cell">Sale Price</TableHead>
                     <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
                     <TableHead>Status</TableHead>
@@ -323,8 +329,8 @@ export default function Inventory() {
                 <TableBody>
                   {filteredInventory.map((item) => {
                     const product = products.find(p => p.name === item.name);
-                    const avgCost = product?.averageCost || 0;
-                    const stockValue = item.stock * avgCost;
+                    const salePrice = product?.salePrice || 0;
+                    const stockValue = item.stock * salePrice;
                     const isLowStock = item.stock < 10;
 
                     return (
@@ -332,9 +338,6 @@ export default function Inventory() {
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
                         <TableCell>{item.stock} pcs</TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          KSh {avgCost.toLocaleString()}
-                        </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           KSh {product?.salePrice?.toLocaleString() || "N/A"}
                         </TableCell>
@@ -373,6 +376,13 @@ export default function Inventory() {
                               }}
                             >
                               <Minus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewBatchDetails(item)}
+                            >
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -467,6 +477,13 @@ export default function Inventory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Batch Details Dialog */}
+      <BatchDetailsDialog
+        isOpen={isBatchDetailsOpen}
+        onClose={() => setIsBatchDetailsOpen(false)}
+        productName={selectedProductForBatches}
+      />
     </ERPLayout>
   );
 }

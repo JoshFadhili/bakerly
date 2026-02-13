@@ -19,7 +19,9 @@ import {
 import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
 import { addSale } from "@/services/salesService";
-import { Search, Calendar, AlertCircle } from "lucide-react";
+import { getInventory } from "@/services/inventoryService";
+import { InventoryItem } from "@/types/inventory";
+import { Search, Calendar, AlertCircle, Package, TrendingDown } from "lucide-react";
 
 interface NewSaleDialogProps {
   isOpen: boolean;
@@ -34,10 +36,10 @@ export default function NewSaleDialog({
 }: NewSaleDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stockWarning, setStockWarning] = useState("");
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -50,6 +52,28 @@ export default function NewSaleDialog({
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get stock for a product
+  const getStockForProduct = (productName: string): number => {
+    const inventoryItem = inventory.find(item => item.name === productName);
+    return inventoryItem?.stock ?? 0;
+  };
+
+  // Check if stock is low (<= 10)
+  const isLowStock = (productName: string): boolean => {
+    return getStockForProduct(productName) <= 10;
+  };
+
+  // Check if there's enough stock for the requested quantity
+  const hasEnoughStock = (productName: string, quantity: number): boolean => {
+    return getStockForProduct(productName) >= quantity;
+  };
+
+  // Calculate remaining stock after sale
+  const getRemainingStock = (productName: string, quantity: number): number => {
+    const currentStock = getStockForProduct(productName);
+    return Math.max(0, currentStock - quantity);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,19 +89,38 @@ export default function NewSaleDialog({
     };
   }, []);
 
-  // Fetch products on mount
+  // Fetch products and inventory on mount
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const productsList = await getProducts();
+        const [productsList, inventoryList] = await Promise.all([
+          getProducts(),
+          getInventory(),
+        ]);
         setProducts(productsList);
         setFilteredProducts(productsList);
+        setInventory(inventoryList);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching data:", error);
       }
     };
-    fetchProducts();
+    fetchData();
   }, []);
+
+  // Refresh inventory when dialog opens
+  useEffect(() => {
+    const refreshInventory = async () => {
+      try {
+        const inventoryList = await getInventory();
+        setInventory(inventoryList);
+      } catch (error) {
+        console.error("Error refreshing inventory:", error);
+      }
+    };
+    if (isOpen) {
+      refreshInventory();
+    }
+  }, [isOpen]);
 
   // Filter products based on search query
   useEffect(() => {
@@ -99,20 +142,6 @@ export default function NewSaleDialog({
         ...prev,
         totalAmount: calculatedAmount.toString(),
       }));
-
-      // Check stock availability (only for completed sales)
-      if (formData.status === "completed") {
-        const requestedQuantity = Number(formData.items);
-        if (requestedQuantity > selectedProduct.stock) {
-          setStockWarning(
-            `Warning: Only ${selectedProduct.stock} items in stock. You're trying to sell ${requestedQuantity}.`
-          );
-        } else {
-          setStockWarning("");
-        }
-      } else {
-        setStockWarning("");
-      }
     }
   }, [selectedProduct, formData.items, formData.status]);
 
@@ -125,7 +154,6 @@ export default function NewSaleDialog({
     }));
     setSearchQuery(product.name);
     setShowDropdown(false);
-    setStockWarning("");
   };
 
   const handleInputChange = (
@@ -143,11 +171,10 @@ export default function NewSaleDialog({
     setLoading(true);
 
     try {
-      // Validate stock availability (only for completed sales)
-      if (formData.status === "completed" && selectedProduct && Number(formData.items) > selectedProduct.stock) {
-        alert(
-          `Insufficient stock! Only ${selectedProduct.stock} items available. Please reduce the quantity.`
-        );
+      // Stock validation for completed sales
+      if (formData.status === "completed" && !hasEnoughStock(formData.itemName, Number(formData.items))) {
+        const currentStock = getStockForProduct(formData.itemName);
+        alert(`Insufficient stock! Available: ${currentStock}, Requested: ${formData.items}`);
         setLoading(false);
         return;
       }
@@ -163,17 +190,6 @@ export default function NewSaleDialog({
         createdAt: new Date(),
       });
 
-      // Update product stock (only reduce for completed sales)
-      if (selectedProduct && formData.status === "completed") {
-        const newStock = selectedProduct.stock - Number(formData.items);
-        const newStatus = newStock <= 10 ? "low_stock" : "active";
-        
-        await updateProduct(selectedProduct.id!, {
-          stock: newStock,
-          status: newStatus,
-        });
-      }
-
       // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -186,7 +202,6 @@ export default function NewSaleDialog({
       setSelectedProduct(null);
       setSearchQuery("");
       setShowDropdown(false);
-      setStockWarning("");
 
       onClose();
       onSaleAdded();
@@ -251,37 +266,37 @@ export default function NewSaleDialog({
                 className="border rounded-md max-h-48 overflow-y-auto bg-background z-[100] shadow-lg absolute w-full"
               >
                 {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className={`px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center ${
-                        product.stock === 0 ? "opacity-50" : ""
-                      }`}
-                      onClick={() => {
-                        if (product.stock > 0) {
+                  filteredProducts.map((product) => {
+                    const stock = getStockForProduct(product.name);
+                    const lowStock = isLowStock(product.name);
+                    return (
+                      <div
+                        key={product.id}
+                        className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                        onClick={() => {
                           handleProductSelect(product);
-                        }
-                      }}
-                    >
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                        }}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Package className="h-3 w-3" />
+                            <span className={lowStock ? "text-orange-500 font-medium" : ""}>
+                              {stock}
+                            </span>
+                          </div>
+                          {lowStock && (
+                            <TrendingDown className="h-3 w-3 text-orange-500" />
+                          )}
                         </div>
                       </div>
-                      <div
-                        className={`text-xs ${
-                          product.stock === 0
-                            ? "text-red-500 font-medium"
-                            : product.stock <= 10
-                            ? "text-yellow-600"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {product.stock === 0 ? "Out of Stock" : `Stock: ${product.stock}`}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
                     No products found
@@ -290,6 +305,48 @@ export default function NewSaleDialog({
               </div>
             )}
           </div>
+
+          {/* Stock Warning */}
+          {selectedProduct && formData.status === "completed" && (
+            <div className={`p-3 rounded-md border ${
+              isLowStock(selectedProduct.name)
+                ? "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800"
+                : "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800"
+            }`}>
+              <div className="flex items-start gap-2">
+                <AlertCircle className={`h-4 w-4 mt-0.5 ${
+                  isLowStock(selectedProduct.name) ? "text-orange-500" : "text-blue-500"
+                }`} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${
+                    isLowStock(selectedProduct.name) ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
+                  }`}>
+                    Stock Information
+                  </p>
+                  <p className={`text-xs mt-1 ${
+                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                  }`}>
+                    Available Stock: <span className="font-semibold">{getStockForProduct(selectedProduct.name)}</span> units
+                  </p>
+                  <p className={`text-xs mt-1 ${
+                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                  }`}>
+                    Stock After Sale: <span className="font-semibold">{getRemainingStock(selectedProduct.name, Number(formData.items))}</span> units
+                  </p>
+                  {isLowStock(selectedProduct.name) && (
+                    <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
+                      ⚠️ Low stock warning! Consider restocking soon.
+                    </p>
+                  )}
+                  {!hasEnoughStock(selectedProduct.name, Number(formData.items)) && (
+                    <p className="text-xs text-red-600 dark:text-red-500 mt-1 font-medium">
+                      ⚠️ Insufficient stock for requested quantity!
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Items (Quantity) */}
           <div className="space-y-2">
@@ -303,20 +360,7 @@ export default function NewSaleDialog({
               onChange={handleInputChange}
               required
             />
-            {selectedProduct && (
-              <p className="text-xs text-muted-foreground">
-                Available stock: {selectedProduct.stock}
-              </p>
-            )}
           </div>
-
-          {/* Stock Warning */}
-          {stockWarning && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">{stockWarning}</p>
-            </div>
-          )}
 
           {/* Total Amount */}
           <div className="space-y-2">
@@ -389,7 +433,7 @@ export default function NewSaleDialog({
             </Button>
             <Button
               type="submit"
-              disabled={loading || (stockWarning !== "" && formData.status === "completed")}
+              disabled={loading}
             >
               {loading ? "Adding..." : "Add Sale"}
             </Button>

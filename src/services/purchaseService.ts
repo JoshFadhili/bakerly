@@ -2,6 +2,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   Timestamp,
@@ -15,6 +16,13 @@ import { deleteDoc } from "firebase/firestore";
 
 // 🔗 Collection reference
 const purchasesRef = collection(db, "purchases");
+
+// 🎯 Generate unique batch ID
+export const generateBatchId = (): string => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `BATCH-${timestamp}-${random}`.toUpperCase();
+};
 
 // ➕ ADD PURCHASE
 export const addPurchase = async (purchase: Purchase) => {
@@ -258,5 +266,121 @@ export const filterPurchasesByCostRange = async (
   } catch (error) {
     console.error("Error filtering purchases:", error);
     throw new Error("Failed to filter purchases. Please try again.");
+  }
+};
+
+// 📦 GET PURCHASES BY PRODUCT NAME (for FIFO tracking)
+export const getPurchasesByProductName = async (itemName: string): Promise<Purchase[]> => {
+  try {
+    // Query all received purchases first, then filter by product name
+    // This avoids the need for a composite Firestore index
+    const q = query(
+      purchasesRef,
+      where("status", "==", "received")
+    );
+    const snapshot = await getDocs(q);
+
+    // Map and filter results
+    const results = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as Omit<Purchase, "id">;
+      return {
+        id: docSnap.id,
+        ...data,
+        date: data.date instanceof Timestamp
+          ? data.date.toDate()
+          : data.date,
+        createdAt: data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : data.createdAt,
+        updatedAt: data.updatedAt instanceof Timestamp
+          ? data.updatedAt.toDate()
+          : data.updatedAt,
+      };
+    });
+
+    // Filter for exact match (case-insensitive and trimmed)
+    const filtered = results.filter(purchase =>
+      purchase.itemName?.trim().toLowerCase() === itemName.trim().toLowerCase()
+    );
+
+    // Sort by date ascending (oldest first for FIFO)
+    return filtered.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+      const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+  } catch (error) {
+    console.error("Error fetching purchases by product name:", error);
+    throw new Error("Failed to fetch purchases by product name. Please try again.");
+  }
+};
+
+// 📦 GET BATCHES BY PRODUCT NAME (for inventory batch details)
+export const getBatchesByProductName = async (itemName: string): Promise<Purchase[]> => {
+  try {
+    // Query all received purchases first, then filter by product name
+    const q = query(
+      purchasesRef,
+      where("status", "==", "received")
+    );
+    const snapshot = await getDocs(q);
+
+    // Map and filter results
+    const results = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as Omit<Purchase, "id">;
+      return {
+        id: docSnap.id,
+        ...data,
+        date: data.date instanceof Timestamp
+          ? data.date.toDate()
+          : data.date,
+        createdAt: data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : data.createdAt,
+        updatedAt: data.updatedAt instanceof Timestamp
+          ? data.updatedAt.toDate()
+          : data.updatedAt,
+      };
+    });
+
+    // Filter for exact match (case-insensitive and trimmed)
+    const filtered = results.filter(purchase => 
+      purchase.itemName?.trim().toLowerCase() === itemName.trim().toLowerCase()
+    );
+
+    // Sort by date descending (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+      const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+  } catch (error) {
+    console.error("Error fetching batches by product name:", error);
+    throw new Error("Failed to fetch batches by product name. Please try again.");
+  }
+};
+
+// 🔄 UPDATE BATCH QUANTITY (for FIFO when sales occur)
+export const updateBatchQuantity = async (purchaseId: string, quantitySold: number): Promise<void> => {
+  try {
+    const purchaseRef = doc(db, "purchases", purchaseId);
+
+    // First, get the current purchase to check remaining items
+    const purchaseDoc = await getDoc(purchaseRef);
+
+    if (!purchaseDoc.exists()) {
+      throw new Error("Purchase not found");
+    }
+
+    const currentData = purchaseDoc.data() as Omit<Purchase, "id">;
+    const newItemsRemaining = Math.max(0, (currentData.itemsRemaining || currentData.items) - quantitySold);
+
+    await updateDoc(purchaseRef, {
+      itemsRemaining: newItemsRemaining,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error updating batch quantity:", error);
+    throw new Error("Failed to update batch quantity. Please try again.");
   }
 };

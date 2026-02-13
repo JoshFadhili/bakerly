@@ -13,21 +13,40 @@ import {
 import { db } from "@/lib/firebase";
 
 const productsRef = collection(db, "products");
+const inventoryRef = collection(db, "inventory");
 const stockAdjustmentsRef = collection(db, "stockAdjustments");
 
-// 📥 Get all inventory items (from products collection)
+// 🔍 Helper function to get product category by name
+export const getProductCategoryByName = async (productName: string): Promise<string | null> => {
+  try {
+    const q = query(productsRef, where("name", "==", productName));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const productData = snapshot.docs[0].data();
+    return productData.category || null;
+  } catch (error) {
+    console.error("Error fetching product category:", error);
+    return null;
+  }
+};
+
+// � Get all inventory items (from inventory collection)
 export const getInventory = async () => {
-  const snapshot = await getDocs(productsRef);
+  const snapshot = await getDocs(inventoryRef);
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
   }));
 };
 
-// 📥 Get inventory by category (from products collection)
+// 📥 Get inventory by category (from inventory collection)
 export const getInventoryByCategory = async (category: string) => {
   const q = query(
-    productsRef,
+    inventoryRef,
     where("category", "==", category)
   );
   const snapshot = await getDocs(q);
@@ -37,9 +56,9 @@ export const getInventoryByCategory = async (category: string) => {
   }));
 };
 
-// 📥 Get low stock items (from products collection)
+// 📥 Get low stock items (from inventory collection)
 export const getLowStockItems = async () => {
-  const snapshot = await getDocs(productsRef);
+  const snapshot = await getDocs(inventoryRef);
   return snapshot.docs
     .map(doc => ({
       id: doc.id,
@@ -48,11 +67,11 @@ export const getLowStockItems = async () => {
     .filter((item: any) => item.stock < 10); // Using threshold of 10 for low stock
 };
 
-// ➕ Add stock to product (updates products collection)
+// ➕ Add stock to product (updates inventory collection)
 export const addStock = async (id: string, quantity: number) => {
-  const itemRef = doc(db, "products", id);
-  // First get the current product to calculate new stock
-  const snapshot = await getDocs(query(productsRef, where("__name__", "==", id)));
+  const itemRef = doc(db, "inventory", id);
+  // First get the current inventory item to calculate new stock
+  const snapshot = await getDocs(query(inventoryRef, where("__name__", "==", id)));
   if (snapshot.empty) return;
 
   const currentData = snapshot.docs[0].data();
@@ -76,11 +95,11 @@ export const addStock = async (id: string, quantity: number) => {
   });
 };
 
-// ✏️ Adjust stock (increase or decrease) - updates products collection
+// ✏️ Adjust stock (increase or decrease) - updates inventory collection
 export const adjustStock = async (id: string, adjustment: number, reason?: string) => {
-  const itemRef = doc(db, "products", id);
-  // First get the current product
-  const snapshot = await getDocs(query(productsRef, where("__name__", "==", id)));
+  const itemRef = doc(db, "inventory", id);
+  // First get the current inventory item
+  const snapshot = await getDocs(query(inventoryRef, where("__name__", "==", id)));
   if (snapshot.empty) return;
 
   const currentData = snapshot.docs[0].data();
@@ -120,4 +139,206 @@ export const addStockAdjustment = async (data: any) => {
     ...data,
     createdAt: Timestamp.now(),
   });
+};
+
+// 🔧 Retroactively fix all inventory items with "Uncategorized" category
+export const fixAllInventoryCategories = async (): Promise<{ updated: number; skipped: number }> => {
+  try {
+    const snapshot = await getDocs(inventoryRef);
+    let updated = 0;
+    let skipped = 0;
+
+    for (const docSnap of snapshot.docs) {
+      const inventoryItem = docSnap.data();
+      const itemName = inventoryItem.name;
+      const currentCategory = inventoryItem.category;
+
+      // Skip if category is already set and not "Uncategorized"
+      if (currentCategory && currentCategory !== "Uncategorized") {
+        skipped++;
+        continue;
+      }
+
+      // Fetch category from products database
+      const productCategory = await getProductCategoryByName(itemName);
+
+      if (productCategory && productCategory !== "Uncategorized") {
+        await updateDoc(doc(db, "inventory", docSnap.id), {
+          category: productCategory,
+          updatedAt: Timestamp.now(),
+        });
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { updated, skipped };
+  } catch (error) {
+    console.error("Error fixing inventory categories:", error);
+    throw new Error("Failed to fix inventory categories. Please try again.");
+  }
+};
+
+// 🔄 Create or update inventory item from purchase
+export const syncInventoryFromPurchase = async (
+  itemName: string,
+  quantity: number,
+  status: string,
+  category?: string
+) => {
+  // Only update inventory if status is "received"
+  if (status !== "received") {
+    return;
+  }
+
+  // Auto-fetch category from products database if not provided
+  let productCategory = category;
+  if (!productCategory) {
+    productCategory = await getProductCategoryByName(itemName);
+  }
+
+  // Check if inventory item already exists
+  const q = query(inventoryRef, where("name", "==", itemName));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    // Create new inventory item
+    await addDoc(inventoryRef, {
+      name: itemName,
+      category: productCategory || "Uncategorized",
+      stock: quantity,
+      status: quantity <= 10 ? "low_stock" : "active",
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  } else {
+    // Update existing inventory item
+    const itemDoc = snapshot.docs[0];
+    const currentData = itemDoc.data();
+    const newStock = (currentData.stock || 0) + quantity;
+    const newStatus = newStock <= 10 ? "low_stock" : "active";
+
+    // Update category if it was missing, is "Uncategorized", and we now have one from products
+    const updateData: any = {
+      stock: newStock,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+    };
+    
+    if (productCategory && (!currentData.category || currentData.category === "Uncategorized")) {
+      updateData.category = productCategory;
+    }
+
+    await updateDoc(doc(db, "inventory", itemDoc.id), updateData);
+  }
+};
+
+// 🔄 Update inventory when purchase status or quantity changes
+export const updateInventoryFromPurchaseEdit = async (
+  itemName: string,
+  originalStatus: string,
+  newStatus: string,
+  originalQuantity: number,
+  newQuantity: number
+) => {
+  // Auto-fetch category from products database
+  const productCategory = await getProductCategoryByName(itemName);
+
+  // Check if inventory item exists
+  const q = query(inventoryRef, where("name", "==", itemName));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    // If no inventory item exists, create one if new status is received
+    if (newStatus === "received") {
+      await addDoc(inventoryRef, {
+        name: itemName,
+        category: productCategory || "Uncategorized",
+        stock: newQuantity,
+        status: newQuantity <= 10 ? "low_stock" : "active",
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+    return;
+  }
+
+  const itemDoc = snapshot.docs[0];
+  const currentData = itemDoc.data();
+  const currentStock = currentData.stock || 0;
+
+  // Calculate the stock change
+  let stockChange = 0;
+
+  // If original status was received, remove original quantity
+  if (originalStatus === "received") {
+    stockChange -= originalQuantity;
+  }
+
+  // If new status is received, add new quantity
+  if (newStatus === "received") {
+    stockChange += newQuantity;
+  }
+
+  const newStock = currentStock + stockChange;
+  const newStatusValue = newStock <= 10 ? "low_stock" : "active";
+
+  // Update category if it was missing, is "Uncategorized", and we now have one from products
+  const updateData: any = {
+    stock: newStock,
+    status: newStatusValue,
+    updatedAt: Timestamp.now(),
+  };
+  
+  if (productCategory && (!currentData.category || currentData.category === "Uncategorized")) {
+    updateData.category = productCategory;
+  }
+
+  await updateDoc(doc(db, "inventory", itemDoc.id), updateData);
+};
+
+// 🛒 Update inventory when a sale is made (deduct stock)
+export const updateInventoryFromSale = async (
+  itemName: string,
+  quantitySold: number
+): Promise<void> => {
+  try {
+    // Check if inventory item exists
+    const q = query(inventoryRef, where("name", "==", itemName));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.warn(`Warning: Inventory item not found for ${itemName}. Cannot deduct stock.`);
+      return;
+    }
+
+    const itemDoc = snapshot.docs[0];
+    const currentData = itemDoc.data();
+    const currentStock = currentData.stock || 0;
+
+    // Calculate new stock (ensure it doesn't go negative)
+    const newStock = Math.max(0, currentStock - quantitySold);
+    const newStatus = newStock <= 10 ? "low_stock" : "active";
+
+    // Update the inventory item
+    await updateDoc(doc(db, "inventory", itemDoc.id), {
+      stock: newStock,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+    });
+
+    // Record the adjustment in stockAdjustments collection
+    await addStockAdjustment({
+      productId: itemDoc.id,
+      productName: itemName,
+      adjustmentType: "sale",
+      quantity: -quantitySold, // Negative to indicate deduction
+      previousStock: currentStock,
+      newStock: newStock,
+    });
+  } catch (error) {
+    console.error("Error updating inventory from sale:", error);
+    throw new Error("Failed to update inventory from sale. Please try again.");
+  }
 };

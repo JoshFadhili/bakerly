@@ -22,7 +22,9 @@ import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
 import { updatePurchase } from "@/services/purchaseService";
 import { Purchase } from "@/types/purchase";
-import { Search, Calendar, AlertCircle, Info } from "lucide-react";
+import { getInventory, updateInventoryFromPurchaseEdit } from "@/services/inventoryService";
+import { InventoryItem } from "@/types/inventory";
+import { Search, Calendar, AlertCircle, Info, Hash, Package, TrendingDown, ArrowUpDown } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -43,12 +45,13 @@ export default function EditPurchaseDialog({
 }: EditPurchaseDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stockChangeInfo, setStockChangeInfo] = useState("");
 
   const [formData, setFormData] = useState({
+    batchId: "",
     date: "",
     itemName: "",
     supplier: "",
@@ -62,6 +65,40 @@ export default function EditPurchaseDialog({
   const [originalStatus, setOriginalStatus] = useState<"received" | "pending" | "cancelled">("received");
   const [originalQuantity, setOriginalQuantity] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get stock for a product
+  const getStockForProduct = (productName: string): number => {
+    const inventoryItem = inventory.find(item => item.name === productName);
+    return inventoryItem?.stock ?? 0;
+  };
+
+  // Check if stock is low (<= 10)
+  const isLowStock = (productName: string): boolean => {
+    return getStockForProduct(productName) <= 10;
+  };
+
+  // Calculate stock change based on status and quantity changes
+  const calculateStockChange = (): number => {
+    if (!selectedProduct) return 0;
+
+    const currentStock = getStockForProduct(selectedProduct.name);
+    const newQuantity = Number(formData.items);
+    const newStatus = formData.status;
+
+    // If original status was received, stock was already added
+    let stockAfterOriginal = currentStock;
+    if (originalStatus === "received") {
+      stockAfterOriginal = currentStock - originalQuantity; // Remove original quantity
+    }
+
+    // Calculate new stock after changes
+    let newStock = stockAfterOriginal;
+    if (newStatus === "received") {
+      newStock = stockAfterOriginal + newQuantity;
+    }
+
+    return newStock - currentStock;
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -77,28 +114,33 @@ export default function EditPurchaseDialog({
     };
   }, []);
 
-  // Fetch products on mount
+  // Fetch products and inventory on mount
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const productsList = await getProducts();
+        const [productsList, inventoryList] = await Promise.all([
+          getProducts(),
+          getInventory(),
+        ]);
         setProducts(productsList);
         setFilteredProducts(productsList);
+        setInventory(inventoryList);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching data:", error);
       }
     };
-    fetchProducts();
+    fetchData();
   }, []);
 
   // Initialize form with purchase data when purchase changes
   useEffect(() => {
     if (purchase) {
-      const dateStr = purchase.date instanceof Date 
+      const dateStr = purchase.date instanceof Date
         ? purchase.date.toISOString().split('T')[0]
         : new Date(purchase.date).toISOString().split('T')[0];
-      
+
       setFormData({
+        batchId: purchase.batchId || "",
         date: dateStr,
         itemName: purchase.itemName,
         supplier: purchase.supplier,
@@ -107,11 +149,11 @@ export default function EditPurchaseDialog({
         totalCost: purchase.totalCost.toString(),
         status: purchase.status,
       });
-      
+
       setOriginalStatus(purchase.status);
       setOriginalQuantity(purchase.items);
       setSearchQuery(purchase.itemName);
-      
+
       // Find the product
       const product = products.find(p => p.name === purchase.itemName);
       if (product) {
@@ -141,56 +183,18 @@ export default function EditPurchaseDialog({
         totalCost: calculatedCost.toString(),
       }));
 
-      // Calculate stock changes
-      const newQuantity = Number(formData.items);
-      const quantityChange = newQuantity - originalQuantity;
-      
-      if (formData.status === "received") {
-        if (selectedProduct) {
-          const currentStock = selectedProduct.stock;
-          
-          if (quantityChange > 0) {
-            // Adding more items than before
-            setStockChangeInfo(`Stock will be increased by ${quantityChange} (from ${currentStock} to ${currentStock + quantityChange})`);
-          } else if (quantityChange < 0) {
-            // Adding fewer items than before
-            setStockChangeInfo(`Stock will be decreased by ${Math.abs(quantityChange)} (from ${currentStock} to ${currentStock + quantityChange})`);
-          } else {
-            setStockChangeInfo("No change in quantity");
-          }
-        }
-      }
     }
   }, [formData.itemPrice, formData.items, formData.status, originalQuantity, selectedProduct]);
-
-  // Handle status change
-  useEffect(() => {
-    if (selectedProduct && purchase) {
-      const statusChanged = formData.status !== originalStatus;
-      
-      if (statusChanged && formData.status === "received" && originalStatus !== "received") {
-        // Changing to received - add stock
-        const newQuantity = Number(formData.items);
-        const currentStock = selectedProduct.stock;
-        setStockChangeInfo(`Stock will be increased by ${newQuantity} (from ${currentStock} to ${currentStock + newQuantity})`);
-      } else if (statusChanged && formData.status !== "received" && originalStatus === "received") {
-        // Changing from received - restore stock
-        const currentStock = selectedProduct.stock;
-        setStockChangeInfo(`Stock will be decreased by ${originalQuantity} (from ${currentStock} to ${currentStock - originalQuantity})`);
-      }
-    }
-  }, [formData.status, originalStatus, selectedProduct, purchase, formData.totalCost]);
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
     setFormData((prev) => ({
       ...prev,
       itemName: product.name,
-      itemPrice: (product.averageCost ?? 0).toString(), // Use average cost from purchases
+      itemPrice: "0", // Default to 0, user can edit
     }));
     setSearchQuery(product.name);
     setShowDropdown(false);
-    setStockChangeInfo("");
   };
 
   const handleInputChange = (
@@ -223,36 +227,14 @@ export default function EditPurchaseDialog({
         status: formData.status,
       });
 
-      // Update product stock based on status and quantity changes
-      if (selectedProduct) {
-        let stockChange = 0;
-        
-        if (originalStatus !== "received" && formData.status === "received") {
-          // First time receiving - add by new quantity
-          stockChange = Number(formData.items);
-        } else if (originalStatus === "received" && formData.status === "received") {
-          // Still received - adjust by quantity change
-          stockChange = Number(formData.items) - originalQuantity;
-        } else if (originalStatus === "received" && formData.status !== "received") {
-          // Changing from received - restore original quantity
-          stockChange = -originalQuantity;
-        }
-        
-        const newStock = selectedProduct.stock + stockChange;
-        const newStatus = newStock <= 10 ? "low_stock" : "active";
-        
-        // Calculate new average cost
-        const currentTotalCost = selectedProduct.averageCost * selectedProduct.stock;
-        const purchaseCost = Number(formData.totalCost);
-        const newTotalCost = currentTotalCost + purchaseCost;
-        const newAverageCost = newTotalCost / newStock;
-        
-        await updateProduct(selectedProduct.id!, {
-          stock: newStock,
-          averageCost: newAverageCost,
-          status: newStatus,
-        });
-      }
+      // Sync inventory with purchase changes
+      await updateInventoryFromPurchaseEdit(
+        formData.itemName,
+        originalStatus,
+        formData.status,
+        originalQuantity,
+        Number(formData.items)
+      );
 
       onClose();
       onPurchaseUpdated();
@@ -272,6 +254,26 @@ export default function EditPurchaseDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Batch ID */}
+          <div className="space-y-2">
+            <Label htmlFor="batchId">Batch ID</Label>
+            <div className="relative">
+              <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="batchId"
+                name="batchId"
+                type="text"
+                value={formData.batchId}
+                onChange={handleInputChange}
+                className="pl-9 bg-muted"
+                required
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unique identifier for this purchase batch
+            </p>
+          </div>
+
           {/* Date */}
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
@@ -317,23 +319,35 @@ export default function EditPurchaseDialog({
                 className="border rounded-md max-h-48 overflow-y-auto bg-background z-[100] shadow-lg absolute w-full"
               >
                 {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
-                      onClick={() => handleProductSelect(product)}
-                    >
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {product.category} • Avg Cost: KSh {(product.averageCost ?? 0).toLocaleString()}
+                  filteredProducts.map((product) => {
+                    const stock = getStockForProduct(product.name);
+                    const lowStock = isLowStock(product.name);
+                    return (
+                      <div
+                        key={product.id}
+                        className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                        onClick={() => handleProductSelect(product)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {product.category}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Package className="h-3 w-3" />
+                            <span className={lowStock ? "text-orange-500 font-medium" : ""}>
+                              {stock}
+                            </span>
+                          </div>
+                          {lowStock && (
+                            <TrendingDown className="h-3 w-3 text-orange-500" />
+                          )}
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Stock: {product.stock}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
                     No products found
@@ -342,6 +356,75 @@ export default function EditPurchaseDialog({
               </div>
             )}
           </div>
+
+          {/* Stock Info */}
+          {selectedProduct && (
+            <div className={`p-3 rounded-md border ${
+              isLowStock(selectedProduct.name)
+                ? "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800"
+                : "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800"
+            }`}>
+              <div className="flex items-start gap-2">
+                <Info className={`h-4 w-4 mt-0.5 ${
+                  isLowStock(selectedProduct.name) ? "text-orange-500" : "text-green-500"
+                }`} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${
+                    isLowStock(selectedProduct.name) ? "text-orange-700 dark:text-orange-400" : "text-green-700 dark:text-green-400"
+                  }`}>
+                    Current Stock Information
+                  </p>
+                  <p className={`text-xs mt-1 ${
+                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-green-600 dark:text-green-500"
+                  }`}>
+                    Available Stock: <span className="font-semibold">{getStockForProduct(selectedProduct.name)}</span> units
+                  </p>
+                  {isLowStock(selectedProduct.name) && (
+                    <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
+                      ⚠️ Low stock warning! This purchase will help restock.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stock Change Info */}
+          {selectedProduct && (originalStatus !== formData.status || originalQuantity !== Number(formData.items)) && (
+            <div className="p-3 rounded-md border bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 text-purple-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                    Stock Change Information
+                  </p>
+                  <div className="text-xs mt-1 space-y-1 text-purple-600 dark:text-purple-500">
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>Original Status: <span className="font-semibold">{originalStatus}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>Original Quantity: <span className="font-semibold">{originalQuantity}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>New Status: <span className="font-semibold">{formData.status}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>New Quantity: <span className="font-semibold">{formData.items}</span></span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                      <span className="font-semibold">
+                        Stock Change: {calculateStockChange() > 0 ? '+' : ''}{calculateStockChange()} units
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Supplier */}
           <div className="space-y-2">
@@ -369,21 +452,8 @@ export default function EditPurchaseDialog({
               onChange={handleInputChange}
               required
             />
-            {selectedProduct && (
-              <p className="text-xs text-muted-foreground">
-                Current stock: {selectedProduct.stock} | Original quantity: {originalQuantity}
-              </p>
-            )}
           </div>
-
-          {/* Stock Change Info */}
-          {stockChangeInfo && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-blue-800">{stockChangeInfo}</p>
-            </div>
-          )}
-
+ 
           {/* Item Price */}
           <div className="space-y-2">
             <Label htmlFor="itemPrice">Item Price (KSh)</Label>
@@ -397,11 +467,6 @@ export default function EditPurchaseDialog({
               onChange={handleInputChange}
               required
             />
-            {selectedProduct && (
-              <p className="text-xs text-muted-foreground">
-                Using average cost from purchases: KSh {(selectedProduct.averageCost ?? 0).toLocaleString()}
-              </p>
-            )}
           </div>
 
           {/* Total Cost */}

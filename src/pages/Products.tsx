@@ -36,9 +36,13 @@ import {
   deleteService,
 } from "@/services/serviceService";
 
+// 🔥 Inventory
+import { getInventory } from "@/services/inventoryService";
+
 // 🧩 Types
 import { Product } from "@/types/product";
 import { Service } from "@/types/service";
+import { InventoryItem } from "@/types/inventory";
 
 // 🧩 Dialog (modal)
 import {
@@ -53,6 +57,7 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state
@@ -71,7 +76,6 @@ export default function Products() {
     name: "",
     category: "",
     salePrice: "",
-    stock: "",
   });
 
   // Service form state
@@ -89,18 +93,32 @@ export default function Products() {
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState("");
 
+  // 🔹 Helper function to get inventory status for a product
+  const getInventoryStatus = (productName: string): { status: "active" | "low_stock" | "out_of_stock"; stock?: number } => {
+    const inventoryItem = inventory.find(item => item.name === productName);
+    if (!inventoryItem) {
+      return { status: "out_of_stock", stock: 0 };
+    }
+    return {
+      status: inventoryItem.status || "active",
+      stock: inventoryItem.stock
+    };
+  };
+
   // 🔹 Fetch products and services
   const fetchProducts = async () => {
     try {
-      const [productsList, categoryList, servicesList] = await Promise.all([
+      const [productsList, categoryList, servicesList, inventoryList] = await Promise.all([
         getProducts(),
         getCategories(),
         getServices(),
+        getInventory(),
       ]);
 
       setProducts(productsList);
       setCategories(categoryList);
       setServices(servicesList);
+      setInventory(inventoryList);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -135,9 +153,7 @@ export default function Products() {
       name: formData.name,
       category: formData.category,
       salePrice: Number(formData.salePrice),
-      stock: Number(formData.stock),
-      averageCost: 0, // Will be updated from purchases
-      status: Number(formData.stock) <= 10 ? "low_stock" : "active",
+      status: "active",
       createdAt: new Date(),
     });
 
@@ -152,8 +168,6 @@ export default function Products() {
       name: formData.name,
       category: formData.category,
       salePrice: Number(formData.salePrice),
-      stock: Number(formData.stock),
-      status: Number(formData.stock) <= 10 ? "low_stock" : "active",
     });
 
     resetAndReload();
@@ -205,7 +219,6 @@ export default function Products() {
       name: "",
       category: "",
       salePrice: "",
-      stock: "",
     });
     setEditingProduct(null);
     setIsOpen(false);
@@ -233,7 +246,6 @@ export default function Products() {
       name: product.name,
       category: product.category,
       salePrice: product.salePrice.toString(),
-      stock: product.stock.toString(),
     });
     setIsOpen(true);
   };
@@ -430,11 +442,7 @@ export default function Products() {
                     <TableHead className="hidden sm:table-cell">
                       Category
                     </TableHead>
-                    <TableHead>Average Cost</TableHead>
                     <TableHead>Sale Price</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Stock
-                    </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -452,27 +460,19 @@ export default function Products() {
                       </TableCell>
 
                       <TableCell>
-                        KSh {Number(product.averageCost).toLocaleString()}
-                      </TableCell>
-
-                      <TableCell>
                         KSh {Number(product.salePrice).toLocaleString()}
-                      </TableCell>
-
-                      <TableCell className="hidden md:table-cell">
-                        {product.stock} Units
                       </TableCell>
 
                       <TableCell>
                         <Badge
                           className={
-                            product.status === "active"
+                            getInventoryStatus(product.name).status === "active"
                               ? "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
                               : "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
                           }
                         >
-                          {product.status === "active"
-                            ? "Active"
+                          {getInventoryStatus(product.name).status === "active"
+                            ? "In Stock"
                             : "Low Stock"}
                         </Badge>
                       </TableCell>
@@ -531,18 +531,6 @@ export default function Products() {
               ))}
             </select>
             <Input name="salePrice" type="number" placeholder="Sale Price" value={formData.salePrice} onChange={handleChange} />
-            <Input name="stock" type="number" placeholder="Initial Stock" value={formData.stock} onChange={handleChange} />
-            
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium">Average Cost</p>
-                <p className="text-xs mt-1">
-                  Average cost is automatically calculated from purchase history. 
-                  It will be updated when you add purchases for this product.
-                </p>
-              </div>
-            </div>
           </div>
 
           <DialogFooter>

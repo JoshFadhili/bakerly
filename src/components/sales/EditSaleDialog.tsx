@@ -20,7 +20,9 @@ import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
 import { updateSale } from "@/services/salesService";
 import { Sale } from "@/types/sale";
-import { Search, Calendar, AlertCircle, Info } from "lucide-react";
+import { getInventory } from "@/services/inventoryService";
+import { InventoryItem } from "@/types/inventory";
+import { Search, Calendar, AlertCircle, Info, Package, TrendingDown, ArrowUpDown } from "lucide-react";
 
 interface EditSaleDialogProps {
   isOpen: boolean;
@@ -37,11 +39,10 @@ export default function EditSaleDialog({
 }: EditSaleDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stockWarning, setStockWarning] = useState("");
-  const [stockChangeInfo, setStockChangeInfo] = useState("");
 
   const [formData, setFormData] = useState({
     date: "",
@@ -57,6 +58,45 @@ export default function EditSaleDialog({
   const [originalQuantity, setOriginalQuantity] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Helper function to get stock for a product
+  const getStockForProduct = (productName: string): number => {
+    const inventoryItem = inventory.find(item => item.name === productName);
+    return inventoryItem?.stock ?? 0;
+  };
+
+  // Check if stock is low (<= 10)
+  const isLowStock = (productName: string): boolean => {
+    return getStockForProduct(productName) <= 10;
+  };
+
+  // Check if there's enough stock for the requested quantity
+  const hasEnoughStock = (productName: string, quantity: number): boolean => {
+    return getStockForProduct(productName) >= quantity;
+  };
+
+  // Calculate stock change based on status and quantity changes
+  const calculateStockChange = (): number => {
+    if (!selectedProduct) return 0;
+
+    const currentStock = getStockForProduct(selectedProduct.name);
+    const newQuantity = Number(formData.items);
+    const newStatus = formData.status;
+
+    // If original status was completed, stock was already reduced
+    let stockAfterOriginal = currentStock;
+    if (originalStatus === "completed") {
+      stockAfterOriginal = currentStock + originalQuantity; // Add back original quantity
+    }
+
+    // Calculate new stock after changes
+    let newStock = stockAfterOriginal;
+    if (newStatus === "completed") {
+      newStock = stockAfterOriginal - newQuantity;
+    }
+
+    return newStock - currentStock;
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -71,18 +111,22 @@ export default function EditSaleDialog({
     };
   }, []);
 
-  // Fetch products on mount
+  // Fetch products and inventory on mount
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const productsList = await getProducts();
+        const [productsList, inventoryList] = await Promise.all([
+          getProducts(),
+          getInventory(),
+        ]);
         setProducts(productsList);
         setFilteredProducts(productsList);
+        setInventory(inventoryList);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching data:", error);
       }
     };
-    fetchProducts();
+    fetchData();
   }, []);
 
   // Initialize form with sale data when sale changes
@@ -133,61 +177,8 @@ export default function EditSaleDialog({
         ...prev,
         totalAmount: calculatedAmount.toString(),
       }));
-
-      // Calculate stock changes
-      const newQuantity = Number(formData.items);
-      const quantityChange = newQuantity - originalQuantity;
-      
-      if (formData.status === "completed") {
-        if (quantityChange > 0) {
-          // Selling more items than before
-          const availableStock = selectedProduct.stock;
-          const additionalNeeded = quantityChange;
-          if (additionalNeeded > availableStock) {
-            setStockWarning(
-              `Warning: Only ${availableStock} additional items available in stock. You're trying to sell ${additionalNeeded} more.`
-            );
-            setStockChangeInfo(`Stock will be reduced by ${additionalNeeded} (from ${selectedProduct.stock} to ${selectedProduct.stock - additionalNeeded})`);
-          } else {
-            setStockWarning("");
-            setStockChangeInfo(`Stock will be reduced by ${additionalNeeded} (from ${selectedProduct.stock} to ${selectedProduct.stock - additionalNeeded})`);
-          }
-        } else if (quantityChange < 0) {
-          // Selling fewer items than before - restore stock
-          setStockWarning("");
-          setStockChangeInfo(`Stock will be increased by ${Math.abs(quantityChange)} (from ${selectedProduct.stock} to ${selectedProduct.stock + Math.abs(quantityChange)})`);
-        } else {
-          setStockWarning("");
-          setStockChangeInfo("No change in quantity");
-        }
-      }
     }
   }, [selectedProduct, formData.items, formData.status, originalQuantity]);
-
-  // Handle status change
-  useEffect(() => {
-    if (selectedProduct && sale) {
-      const statusChanged = formData.status !== originalStatus;
-      
-      if (statusChanged && formData.status === "completed" && originalStatus !== "completed") {
-        // Changing to completed - reduce stock
-        const newQuantity = Number(formData.items);
-        const availableStock = selectedProduct.stock;
-        if (newQuantity > availableStock) {
-          setStockWarning(
-            `Warning: Only ${availableStock} items available in stock. You're trying to sell ${newQuantity}.`
-          );
-        } else {
-          setStockWarning("");
-          setStockChangeInfo(`Stock will be reduced by ${newQuantity} (from ${selectedProduct.stock} to ${selectedProduct.stock - newQuantity})`);
-        }
-      } else if (statusChanged && formData.status !== "completed" && originalStatus === "completed") {
-        // Changing from completed - restore stock
-        setStockWarning("");
-        setStockChangeInfo(`Stock will be restored by ${originalQuantity} (from ${selectedProduct.stock} to ${selectedProduct.stock + originalQuantity})`);
-      }
-    }
-  }, [formData.status, originalStatus, selectedProduct, sale]);
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
@@ -218,25 +209,13 @@ export default function EditSaleDialog({
         throw new Error("Sale ID is required");
       }
 
-      // Validate stock availability for completed sales
-      const newQuantity = Number(formData.items);
-      const quantityChange = newQuantity - originalQuantity;
-      
-      if (formData.status === "completed" && selectedProduct) {
-        let stockToReduce = 0;
-        
-        if (originalStatus !== "completed" && formData.status === "completed") {
-          // First time completing - reduce by full quantity
-          stockToReduce = newQuantity;
-        } else if (originalStatus === "completed" && formData.status === "completed") {
-          // Still completed - adjust by quantity change
-          stockToReduce = quantityChange;
-        }
-        
-        if (stockToReduce > 0 && stockToReduce > selectedProduct.stock) {
-          alert(
-            `Insufficient stock! Only ${selectedProduct.stock} items available. Please reduce the quantity.`
-          );
+      // Stock validation for completed sales
+      if (formData.status === "completed" && !hasEnoughStock(formData.itemName, Number(formData.items))) {
+        const currentStock = getStockForProduct(formData.itemName);
+        // If original status was completed, account for that
+        const adjustedStock = originalStatus === "completed" ? currentStock + originalQuantity : currentStock;
+        if (adjustedStock < Number(formData.items)) {
+          alert(`Insufficient stock! Available after reversal: ${adjustedStock}, Requested: ${formData.items}`);
           setLoading(false);
           return;
         }
@@ -250,30 +229,7 @@ export default function EditSaleDialog({
         totalAmount: Number(formData.totalAmount),
         payment: formData.payment,
         status: formData.status,
-      });
-
-      // Update product stock based on status and quantity changes
-      if (selectedProduct) {
-        let newStock = selectedProduct.stock;
-        
-        if (originalStatus !== "completed" && formData.status === "completed") {
-          // Changing to completed - reduce stock
-          newStock = selectedProduct.stock - newQuantity;
-        } else if (originalStatus === "completed" && formData.status !== "completed") {
-          // Changing from completed - restore stock
-          newStock = selectedProduct.stock + originalQuantity;
-        } else if (originalStatus === "completed" && formData.status === "completed") {
-          // Still completed - adjust by quantity change
-          newStock = selectedProduct.stock - quantityChange;
-        }
-        
-        const newStatus = newStock <= 10 ? "low_stock" : "active";
-        
-        await updateProduct(selectedProduct.id!, {
-          stock: newStock,
-          status: newStatus,
-        });
-      }
+      }, sale);
 
       onClose();
       onSaleUpdated();
@@ -338,23 +294,35 @@ export default function EditSaleDialog({
                 className="border rounded-md max-h-48 overflow-y-auto bg-background z-[100] shadow-lg absolute w-full"
               >
                 {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
-                      onClick={() => handleProductSelect(product)}
-                    >
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                  filteredProducts.map((product) => {
+                    const stock = getStockForProduct(product.name);
+                    const lowStock = isLowStock(product.name);
+                    return (
+                      <div
+                        key={product.id}
+                        className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                        onClick={() => handleProductSelect(product)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Package className="h-3 w-3" />
+                            <span className={lowStock ? "text-orange-500 font-medium" : ""}>
+                              {stock}
+                            </span>
+                          </div>
+                          {lowStock && (
+                            <TrendingDown className="h-3 w-3 text-orange-500" />
+                          )}
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Stock: {product.stock}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
                     No products found
@@ -363,6 +331,80 @@ export default function EditSaleDialog({
               </div>
             )}
           </div>
+
+          {/* Stock Warning */}
+          {selectedProduct && formData.status === "completed" && (
+            <div className={`p-3 rounded-md border ${
+              isLowStock(selectedProduct.name)
+                ? "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800"
+                : "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800"
+            }`}>
+              <div className="flex items-start gap-2">
+                <AlertCircle className={`h-4 w-4 mt-0.5 ${
+                  isLowStock(selectedProduct.name) ? "text-orange-500" : "text-blue-500"
+                }`} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${
+                    isLowStock(selectedProduct.name) ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
+                  }`}>
+                    Stock Information
+                  </p>
+                  <p className={`text-xs mt-1 ${
+                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                  }`}>
+                    Available Stock: <span className="font-semibold">{getStockForProduct(selectedProduct.name)}</span> units
+                  </p>
+                  {isLowStock(selectedProduct.name) && (
+                    <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
+                      ⚠️ Low stock warning! Consider restocking soon.
+                    </p>
+                  )}
+                  {!hasEnoughStock(selectedProduct.name, Number(formData.items)) && (
+                    <p className="text-xs text-red-600 dark:text-red-500 mt-1 font-medium">
+                      ⚠️ Insufficient stock for requested quantity!
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stock Change Info */}
+          {selectedProduct && (originalStatus !== formData.status || originalQuantity !== Number(formData.items)) && (
+            <div className="p-3 rounded-md border bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 text-purple-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                    Stock Change Information
+                  </p>
+                  <div className="text-xs mt-1 space-y-1 text-purple-600 dark:text-purple-500">
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>Original Status: <span className="font-semibold">{originalStatus}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>Original Quantity: <span className="font-semibold">{originalQuantity}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>New Status: <span className="font-semibold">{formData.status}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpDown className="h-3 w-3" />
+                      <span>New Quantity: <span className="font-semibold">{formData.items}</span></span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                      <span className="font-semibold">
+                        Stock Change: {calculateStockChange() > 0 ? '+' : ''}{calculateStockChange()} units
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Items (Quantity) */}
           <div className="space-y-2">
@@ -376,28 +418,7 @@ export default function EditSaleDialog({
               onChange={handleInputChange}
               required
             />
-            {selectedProduct && (
-              <p className="text-xs text-muted-foreground">
-                Available stock: {selectedProduct.stock} | Original quantity: {originalQuantity}
-              </p>
-            )}
           </div>
-
-          {/* Stock Change Info */}
-          {stockChangeInfo && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-blue-800">{stockChangeInfo}</p>
-            </div>
-          )}
-
-          {/* Stock Warning */}
-          {stockWarning && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">{stockWarning}</p>
-            </div>
-          )}
 
           {/* Total Amount */}
           <div className="space-y-2">
@@ -470,7 +491,7 @@ export default function EditSaleDialog({
             </Button>
             <Button
               type="submit"
-              disabled={loading || (stockWarning !== "" && formData.status === "completed")}
+              disabled={loading}
             >
               {loading ? "Updating..." : "Update Sale"}
             </Button>

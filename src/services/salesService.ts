@@ -110,11 +110,11 @@ export const applyFIFOInventoryDeduction = async (itemName: string, quantity: nu
     }
     
     if (remainingQuantity > 0) {
-      console.warn(`Warning: Could not deduct all ${remainingQuantity} items for ${itemName} using FIFO. Insufficient inventory.`);
+      throw new Error(`Insufficient inventory! Only ${totalDeducted} items available, but ${quantity} items were requested. Please restock before completing this sale.`);
     }
   } catch (error) {
     console.error("Error applying FIFO inventory deduction:", error);
-    throw new Error("Failed to apply FIFO inventory deduction. Please try again.");
+    throw error;
   }
 };
 

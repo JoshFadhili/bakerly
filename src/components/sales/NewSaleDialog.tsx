@@ -22,6 +22,7 @@ import { addSale } from "@/services/salesService";
 import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Search, Calendar, AlertCircle, Package, TrendingDown, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface NewSaleDialogProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export default function NewSaleDialog({
   onClose,
   onSaleAdded,
 }: NewSaleDialogProps) {
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -176,7 +178,11 @@ export default function NewSaleDialog({
       // Stock validation for completed sales
       if (formData.status === "completed" && !hasEnoughStock(formData.itemName, Number(formData.items))) {
         const currentStock = getStockForProduct(formData.itemName);
-        alert(`Insufficient stock! Available: ${currentStock}, Requested: ${formData.items}`);
+        toast({
+          variant: "destructive",
+          title: "Insufficient Stock",
+          description: `Available: ${currentStock}, Requested: ${formData.items}. Please restock before completing this sale.`,
+        });
         setLoading(false);
         return;
       }
@@ -217,9 +223,13 @@ export default function NewSaleDialog({
 
       onClose();
       onSaleAdded();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding sale:", error);
-      alert("Failed to add sale. Please try again.");
+      toast({
+        variant: "destructive",
+        title: "Error Adding Sale",
+        description: error.message || "Failed to add sale. Please try again.",
+      });
     } finally {
       setLoading(false);
     }

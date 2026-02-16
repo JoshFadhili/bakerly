@@ -23,6 +23,7 @@ import { Sale } from "@/types/sale";
 import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Search, Calendar, AlertCircle, Info, Package, TrendingDown, ArrowUpDown, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface EditSaleDialogProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function EditSaleDialog({
   onSaleUpdated,
   sale,
 }: EditSaleDialogProps) {
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -219,7 +221,11 @@ export default function EditSaleDialog({
         // If original status was completed, account for that
         const adjustedStock = originalStatus === "completed" ? currentStock + originalQuantity : currentStock;
         if (adjustedStock < Number(formData.items)) {
-          alert(`Insufficient stock! Available after reversal: ${adjustedStock}, Requested: ${formData.items}`);
+          toast({
+            variant: "destructive",
+            title: "Insufficient Stock",
+            description: `Available after reversal: ${adjustedStock}, Requested: ${formData.items}. Please restock before completing this sale.`,
+          });
           setLoading(false);
           return;
         }
@@ -245,9 +251,13 @@ export default function EditSaleDialog({
 
       onClose();
       onSaleUpdated();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating sale:", error);
-      alert("Failed to update sale. Please try again.");
+      toast({
+        variant: "destructive",
+        title: "Error Updating Sale",
+        description: error.message || "Failed to update sale. Please try again.",
+      });
     } finally {
       setLoading(false);
     }

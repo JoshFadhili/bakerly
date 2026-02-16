@@ -25,6 +25,7 @@ import { Expense } from "@/types/expense";
 import AddExpenseDialog from "@/components/expenses/AddExpenseDialog";
 import EditExpenseDialog from "@/components/expenses/EditExpenseDialog";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { useExpenseDialog } from "@/contexts/ExpenseDialogContext";
 
 const EXPENSE_CATEGORIES = [
   "Rent",
@@ -57,6 +58,15 @@ export default function Expenses() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const { isAddExpenseDialogOpen: globalDialogOpen, closeAddExpenseDialog } = useExpenseDialog();
+
+  // Sync with global dialog state
+  useEffect(() => {
+    if (globalDialogOpen) {
+      setIsAddDialogOpen(true);
+      closeAddExpenseDialog();
+    }
+  }, [globalDialogOpen, closeAddExpenseDialog]);
 
   // Fetch expenses on mount
   useEffect(() => {

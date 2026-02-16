@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { usePurchaseDialog } from "@/contexts/PurchaseDialogContext";
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -41,6 +42,7 @@ export default function Purchases() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
+  const { isNewPurchaseDialogOpen: globalDialogOpen, closeNewPurchaseDialog } = usePurchaseDialog();
   
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -51,6 +53,14 @@ export default function Purchases() {
   const [filterMinCost, setFilterMinCost] = useState<string>("");
   const [filterMaxCost, setFilterMaxCost] = useState<string>("");
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
+
+  // Sync with global dialog state
+  useEffect(() => {
+    if (globalDialogOpen) {
+      setIsNewPurchaseDialogOpen(true);
+      closeNewPurchaseDialog();
+    }
+  }, [globalDialogOpen, closeNewPurchaseDialog]);
 
   // Fetch purchases from Firestore
   const fetchPurchases = async () => {

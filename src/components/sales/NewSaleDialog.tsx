@@ -255,6 +255,7 @@ export default function NewSaleDialog({
                 value={formData.date}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -272,6 +273,7 @@ export default function NewSaleDialog({
                 value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -294,6 +296,7 @@ export default function NewSaleDialog({
                 }}
                 onFocus={() => setShowDropdown(true)}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -397,6 +400,7 @@ export default function NewSaleDialog({
               min="1"
               value={formData.items}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
           </div>
@@ -412,6 +416,7 @@ export default function NewSaleDialog({
               step="0.01"
               value={formData.totalAmount}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
             {selectedProduct && (
@@ -503,6 +508,7 @@ export default function NewSaleDialog({
               placeholder="Enter customer name"
               value={formData.customer}
               onChange={handleInputChange}
+              autoComplete="off"
             />
           </div>
 

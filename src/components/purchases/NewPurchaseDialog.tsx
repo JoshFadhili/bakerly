@@ -216,6 +216,7 @@ onClose();
                 value={formData.batchId}
                 onChange={handleInputChange}
                 className="pl-9 bg-muted"
+                autoComplete="off"
                 required
               />
             </div>
@@ -236,6 +237,7 @@ onClose();
                 value={formData.date}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -253,6 +255,7 @@ onClose();
                 value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -275,6 +278,7 @@ onClose();
                 }}
                 onFocus={() => setShowDropdown(true)}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -371,6 +375,7 @@ onClose();
               placeholder="Enter supplier name"
               value={formData.supplier}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
           </div>
@@ -385,6 +390,7 @@ onClose();
               min="1"
               value={formData.items}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
           </div>
@@ -400,6 +406,7 @@ onClose();
               step="0.01"
               value={formData.itemPrice}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
           </div>
@@ -415,6 +422,7 @@ onClose();
               step="0.01"
               value={formData.totalCost}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
             {formData.itemPrice && formData.items && (

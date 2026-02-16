@@ -189,6 +189,7 @@ export default function NewServiceOfferedDialog({
                 value={formData.date}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -206,6 +207,7 @@ export default function NewServiceOfferedDialog({
                 value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -228,6 +230,7 @@ export default function NewServiceOfferedDialog({
                 }}
                 onFocus={() => setShowDropdown(true)}
                 className="pl-9"
+                autoComplete="off"
                 required
               />
             </div>
@@ -273,6 +276,7 @@ export default function NewServiceOfferedDialog({
               step="0.01"
               value={formData.totalAmount}
               onChange={handleInputChange}
+              autoComplete="off"
               required
             />
             {selectedService && (
@@ -333,6 +337,7 @@ export default function NewServiceOfferedDialog({
               placeholder="Enter customer name"
               value={formData.customer}
               onChange={handleInputChange}
+              autoComplete="off"
             />
           </div>
 

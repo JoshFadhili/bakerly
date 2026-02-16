@@ -24,6 +24,7 @@ import { getExpenses, deleteExpense, filterExpensesByCategory, filterExpensesByA
 import { Expense } from "@/types/expense";
 import AddExpenseDialog from "@/components/expenses/AddExpenseDialog";
 import EditExpenseDialog from "@/components/expenses/EditExpenseDialog";
+import { sortByDateTimeDesc } from "@/lib/sortingUtils";
 
 const EXPENSE_CATEGORIES = [
   "Rent",
@@ -82,7 +83,7 @@ export default function Expenses() {
     try {
       setLoading(true);
       const data = await getExpenses();
-      setExpenses(data);
+      setExpenses(sortByDateTimeDesc(data));
     } catch (error) {
       console.error("Error fetching expenses:", error);
     } finally {
@@ -132,7 +133,7 @@ export default function Expenses() {
       filtered = filtered.filter((expense) => expense.amount <= parseFloat(amountMax));
     }
 
-    setFilteredExpenses(filtered);
+    setFilteredExpenses(sortByDateTimeDesc(filtered));
   };
 
   const handleAddExpense = () => {

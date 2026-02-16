@@ -3,7 +3,15 @@ import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -19,6 +27,7 @@ import {
   addCategory,
   deleteCategory,
 } from "@/services/categoryService";
+import CategoryDialog from "@/components/products/CategoryDialog";
 
 // 🔥 Products
 import {
@@ -63,6 +72,7 @@ export default function Products() {
   // Modal state
   const [isOpen, setIsOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
 
   // 🧠 Edit state
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -86,12 +96,11 @@ export default function Products() {
   });
 
   // 🔹 Tabs state
-  // Type annotation added to fix TypeScript error: comparison between "categories" and "services" has no overlap
-  const [activeTab, setActiveTab] = useState<"goods" | "categories" | "services">("goods");
+  const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
 
   // 🔹 Categories state
-  const [categories, setCategories] = useState<any[]>([]);
-  const [newCategory, setNewCategory] = useState("");
+  const [goodsCategories, setGoodsCategories] = useState<any[]>([]);
+  const [servicesCategories, setServicesCategories] = useState<any[]>([]);
 
   // 🔹 Helper function to get inventory status for a product
   const getInventoryStatus = (productName: string): { status: "active" | "low_stock" | "out_of_stock"; stock?: number } => {
@@ -108,15 +117,17 @@ export default function Products() {
   // 🔹 Fetch products and services
   const fetchProducts = async () => {
     try {
-      const [productsList, categoryList, servicesList, inventoryList] = await Promise.all([
+      const [productsList, goodsCategoryList, servicesCategoryList, servicesList, inventoryList] = await Promise.all([
         getProducts(),
-        getCategories(),
+        getCategories("goods"),
+        getCategories("services"),
         getServices(),
         getInventory(),
       ]);
 
       setProducts(productsList);
-      setCategories(categoryList);
+      setGoodsCategories(goodsCategoryList);
+      setServicesCategories(servicesCategoryList);
       setServices(servicesList);
       setInventory(inventoryList);
     } catch (error) {
@@ -278,13 +289,12 @@ export default function Products() {
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <Tabs
-            value={activeTab as "goods" | "categories" | "services"}
-            onValueChange={(value: "goods" | "categories" | "services") => setActiveTab(value)}
+            value={activeTab as "goods" | "services"}
+            onValueChange={(value: "goods" | "services") => setActiveTab(value)}
             className="w-full sm:w-auto"
           >
             <TabsList>
               <TabsTrigger value="goods" asChild={false}>Goods</TabsTrigger>
-              <TabsTrigger value="categories" asChild={false}>Categories</TabsTrigger>
               <TabsTrigger value="services" asChild={false}>Services</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -299,6 +309,15 @@ export default function Products() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCategoryDialogOpen(true)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Categories
+            </Button>
 
             <Button
               variant="success"
@@ -322,50 +341,6 @@ export default function Products() {
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
-          ) : activeTab === "categories" ? (
-            /* ================= CATEGORIES UI ================= */
-            <div className="space-y-4 max-w-md">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="New category name"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                />
-                <Button
-                  onClick={async () => {
-                    if (!newCategory.trim()) return;
-                    await addCategory(newCategory, "categories");
-                    setNewCategory("");
-                    fetchProducts();
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {categories.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between border rounded-md px-3 py-2"
-                  >
-                    <span>{cat.name}</span>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={async () => {
-                        if (!confirm("Delete this category?")) return;
-                        await deleteCategory(cat.id);
-                        fetchProducts();
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
           ) : activeTab === "services" ? (
             /* ================= SERVICES TABLE ================= */
             <div className="overflow-x-auto">
@@ -513,24 +488,55 @@ export default function Products() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <Input name="name" placeholder="Product Name" value={formData.name} onChange={handleChange} />
-            <select
-              name="category"
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
-              }
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="">Select category</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-            <Input name="salePrice" type="number" placeholder="Sale Price" value={formData.salePrice} onChange={handleChange} />
+          <div className="space-y-4">
+            {/* Product Name */}
+            <div className="space-y-2">
+              <Label htmlFor="productName">Product Name</Label>
+              <Input
+                id="productName"
+                name="name"
+                placeholder="Enter product name"
+                value={formData.name}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label htmlFor="productCategory">Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {goodsCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sale Price */}
+            <div className="space-y-2">
+              <Label htmlFor="salePrice">Sale Price (KSh)</Label>
+              <Input
+                id="salePrice"
+                name="salePrice"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.salePrice}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -550,24 +556,55 @@ export default function Products() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <Input name="name" placeholder="Service Name" value={serviceFormData.name} onChange={handleServiceChange} />
-            <select
-              name="category"
-              value={serviceFormData.category}
-              onChange={(e) =>
-                setServiceFormData({ ...serviceFormData, category: e.target.value })
-              }
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="">Select category</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-            <Input name="price" type="number" placeholder="Price" value={serviceFormData.price} onChange={handleServiceChange} />
+          <div className="space-y-4">
+            {/* Service Name */}
+            <div className="space-y-2">
+              <Label htmlFor="serviceName">Service Name</Label>
+              <Input
+                id="serviceName"
+                name="name"
+                placeholder="Enter service name"
+                value={serviceFormData.name}
+                onChange={handleServiceChange}
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label htmlFor="serviceCategory">Category</Label>
+              <Select
+                value={serviceFormData.category}
+                onValueChange={(value) =>
+                  setServiceFormData({ ...serviceFormData, category: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {servicesCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Price */}
+            <div className="space-y-2">
+              <Label htmlFor="servicePrice">Price (KSh)</Label>
+              <Input
+                id="servicePrice"
+                name="price"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={serviceFormData.price}
+                onChange={handleServiceChange}
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -611,6 +648,13 @@ export default function Products() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 📋 Category Management Dialog */}
+      <CategoryDialog
+        open={isCategoryDialogOpen}
+        onOpenChange={setIsCategoryDialogOpen}
+        onCategoryChange={fetchProducts}
+      />
     </ERPLayout>
   );
 }

@@ -38,6 +38,7 @@ import {
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { sortByDateTimeDesc } from "@/lib/sortingUtils";
 
 export default function Sales() {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -95,8 +96,8 @@ export default function Sales() {
         getSales(),
         getServicesOffered(),
       ]);
-      setSales(salesList);
-      setServicesOffered(servicesOfferedList);
+      setSales(sortByDateTimeDesc(salesList));
+      setServicesOffered(sortByDateTimeDesc(servicesOfferedList));
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -153,6 +154,17 @@ export default function Sales() {
       (filterMaxAmount === "" || sale.totalAmount <= Number(filterMaxAmount));
 
     return matchesSearch && matchesStatus && matchesPayment && matchesCustomer && matchesMonth && matchesYear && matchesAmount;
+  }).sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+    const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+    
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+    
+    const timeA = a.time || "00:00";
+    const timeB = b.time || "00:00";
+    return timeB.localeCompare(timeA);
   });
 
   // Filter services offered based on search query and active filters
@@ -188,6 +200,17 @@ export default function Sales() {
       (filterMaxAmount === "" || service.totalAmount <= Number(filterMaxAmount));
 
     return matchesSearch && matchesStatus && matchesPayment && matchesCustomer && matchesMonth && matchesYear && matchesAmount;
+  }).sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+    const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+    
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+    
+    const timeA = a.time || "00:00";
+    const timeB = b.time || "00:00";
+    return timeB.localeCompare(timeA);
   });
 
   // Check if any active filters

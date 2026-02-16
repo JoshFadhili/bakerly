@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { sortByDateTimeDesc } from "@/lib/sortingUtils";
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -55,7 +56,7 @@ export default function Purchases() {
   const fetchPurchases = async () => {
     try {
       const purchasesList = await getPurchases();
-      setPurchases(purchasesList);
+      setPurchases(sortByDateTimeDesc(purchasesList));
     } catch (error) {
       console.error("Error fetching purchases:", error);
     } finally {
@@ -94,6 +95,17 @@ export default function Purchases() {
       (filterMaxCost === "" || purchase.totalCost <= Number(filterMaxCost));
 
     return matchesSearch && matchesStatus && matchesSupplier && matchesMonth && matchesYear && matchesCost;
+  }).sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+    const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+    
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+    
+    const timeA = a.time || "00:00";
+    const timeB = b.time || "00:00";
+    return timeB.localeCompare(timeA);
   });
 
   // Check if any active filters

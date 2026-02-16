@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateExpense } from "@/services/expenseService";
-import { Expense } from "@/types/expense";
+import { Expense, ExpenseType } from "@/types/expense";
 import { Calendar, Clock } from "lucide-react";
 
 interface EditExpenseDialogProps {
@@ -55,21 +55,23 @@ export default function EditExpenseDialog({
     description: "",
     category: "",
     amount: "",
+    expenseType: "operational" as ExpenseType,
   });
 
   // Initialize form with expense data when expense changes
   useEffect(() => {
     if (expense) {
-      const dateStr = expense.date instanceof Date 
+      const dateStr = expense.date instanceof Date
         ? expense.date.toISOString().split('T')[0]
         : new Date(expense.date).toISOString().split('T')[0];
-      
+
       setFormData({
         date: dateStr,
         time: expense.time,
         description: expense.description,
         category: expense.category,
         amount: expense.amount.toString(),
+        expenseType: expense.expenseType || "operational",
       });
     }
   }, [expense]);
@@ -99,6 +101,7 @@ export default function EditExpenseDialog({
         description: formData.description,
         category: formData.category,
         amount: Number(formData.amount),
+        expenseType: formData.expenseType,
       });
 
       onClose();
@@ -186,6 +189,26 @@ export default function EditExpenseDialog({
                     {category}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Expense Type */}
+          <div className="space-y-2">
+            <Label htmlFor="expenseType">Expense Type</Label>
+            <Select
+              value={formData.expenseType}
+              onValueChange={(value) =>
+                setFormData((prev) => ({ ...prev, expenseType: value as ExpenseType }))
+              }
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select expense type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="operational">Operational Expense</SelectItem>
+                <SelectItem value="service">Service Expense</SelectItem>
               </SelectContent>
             </Select>
           </div>

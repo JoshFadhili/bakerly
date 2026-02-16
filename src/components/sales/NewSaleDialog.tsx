@@ -21,7 +21,7 @@ import { Product } from "@/types/product";
 import { addSale } from "@/services/salesService";
 import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
-import { Search, Calendar, AlertCircle, Package, TrendingDown } from "lucide-react";
+import { Search, Calendar, AlertCircle, Package, TrendingDown, Clock } from "lucide-react";
 
 interface NewSaleDialogProps {
   isOpen: boolean;
@@ -43,11 +43,13 @@ export default function NewSaleDialog({
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
     itemName: "",
     items: "1",
     totalAmount: "",
     payment: "Cash" as "Cash" | "M-Pesa" | "Card" | "Bank Transfer",
     status: "completed" as "completed" | "pending" | "cancelled",
+    customer: "",
   });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -180,24 +182,34 @@ export default function NewSaleDialog({
       }
 
       // Add the sale
-      await addSale({
+      const saleData: any = {
         date: new Date(formData.date),
+        time: formData.time,
         itemName: formData.itemName,
         items: Number(formData.items),
         totalAmount: Number(formData.totalAmount),
         payment: formData.payment,
         status: formData.status,
         createdAt: new Date(),
-      });
+      };
+      
+      // Only include customer field if it has a value
+      if (formData.customer && formData.customer.trim() !== "") {
+        saleData.customer = formData.customer;
+      }
+      
+      await addSale(saleData);
 
       // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
         itemName: "",
         items: "1",
         totalAmount: "",
         payment: "Cash",
         status: "completed",
+        customer: "",
       });
       setSelectedProduct(null);
       setSearchQuery("");
@@ -231,6 +243,23 @@ export default function NewSaleDialog({
                 name="date"
                 type="date"
                 value={formData.date}
+                onChange={handleInputChange}
+                className="pl-9"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Time */}
+          <div className="space-y-2">
+            <Label htmlFor="time">Time</Label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="time"
+                name="time"
+                type="time"
+                value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
                 required
@@ -383,6 +412,33 @@ export default function NewSaleDialog({
             )}
           </div>
 
+          {/* Estimated COGS and Gross Profit */}
+          {selectedProduct && (
+            <div className="p-3 rounded-md border bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+              <div className="flex items-start gap-2">
+                <TrendingDown className="h-4 w-4 mt-0.5 text-blue-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                    Estimated Profit Analysis
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                    *COGS and Gross Profit will be calculated based on FIFO inventory after the sale is created
+                  </p>
+                  <div className="text-xs mt-2 space-y-1 text-blue-600 dark:text-blue-500">
+                    <div className="flex justify-between">
+                      <span>Estimated Revenue:</span>
+                      <span className="font-semibold">KSh {Number(formData.totalAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Quantity:</span>
+                      <span className="font-semibold">{formData.items} units</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment Method */}
           <div className="space-y-2">
             <Label htmlFor="payment">Payment Method</Label>
@@ -425,6 +481,19 @@ export default function NewSaleDialog({
             <p className="text-xs text-muted-foreground">
               Note: Stock is only reduced for completed sales
             </p>
+          </div>
+
+          {/* Customer (Optional) */}
+          <div className="space-y-2">
+            <Label htmlFor="customer">Customer (Optional)</Label>
+            <Input
+              id="customer"
+              name="customer"
+              type="text"
+              placeholder="Enter customer name"
+              value={formData.customer}
+              onChange={handleInputChange}
+            />
           </div>
 
           <DialogFooter>

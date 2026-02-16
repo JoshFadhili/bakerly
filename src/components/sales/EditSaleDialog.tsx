@@ -22,7 +22,7 @@ import { updateSale } from "@/services/salesService";
 import { Sale } from "@/types/sale";
 import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
-import { Search, Calendar, AlertCircle, Info, Package, TrendingDown, ArrowUpDown } from "lucide-react";
+import { Search, Calendar, AlertCircle, Info, Package, TrendingDown, ArrowUpDown, Clock } from "lucide-react";
 
 interface EditSaleDialogProps {
   isOpen: boolean;
@@ -46,11 +46,13 @@ export default function EditSaleDialog({
 
   const [formData, setFormData] = useState({
     date: "",
+    time: "",
     itemName: "",
     items: "1",
     totalAmount: "",
     payment: "Cash" as "Cash" | "M-Pesa" | "Card" | "Bank Transfer",
     status: "completed" as "completed" | "pending" | "cancelled",
+    customer: "",
   });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -138,11 +140,13 @@ export default function EditSaleDialog({
       
       setFormData({
         date: dateStr,
+        time: sale.time || "",
         itemName: sale.itemName,
         items: sale.items.toString(),
         totalAmount: sale.totalAmount.toString(),
         payment: sale.payment,
         status: sale.status,
+        customer: sale.customer || "",
       });
       
       setOriginalStatus(sale.status);
@@ -222,14 +226,22 @@ export default function EditSaleDialog({
       }
 
       // Update the sale
-      await updateSale(sale.id, {
+      const updateData: any = {
         date: new Date(formData.date),
+        time: formData.time,
         itemName: formData.itemName,
         items: Number(formData.items),
         totalAmount: Number(formData.totalAmount),
         payment: formData.payment,
         status: formData.status,
-      }, sale);
+      };
+      
+      // Only include customer field if it has a value
+      if (formData.customer && formData.customer.trim() !== "") {
+        updateData.customer = formData.customer;
+      }
+      
+      await updateSale(sale.id, updateData, sale);
 
       onClose();
       onSaleUpdated();
@@ -259,6 +271,23 @@ export default function EditSaleDialog({
                 name="date"
                 type="date"
                 value={formData.date}
+                onChange={handleInputChange}
+                className="pl-9"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Time */}
+          <div className="space-y-2">
+            <Label htmlFor="time">Time</Label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="time"
+                name="time"
+                type="time"
+                value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
                 required
@@ -441,6 +470,44 @@ export default function EditSaleDialog({
             )}
           </div>
 
+          {/* COGS and Gross Profit Display */}
+          {sale && (sale.cogs !== undefined || sale.grossProfit !== undefined) && (
+            <div className="p-3 rounded-md border bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+              <div className="flex items-start gap-2">
+                <TrendingDown className="h-4 w-4 mt-0.5 text-green-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                    Profit Analysis
+                  </p>
+                  <div className="text-xs mt-1 space-y-1 text-green-600 dark:text-green-500">
+                    {sale.cogs !== undefined && (
+                      <div className="flex justify-between">
+                        <span>COGS:</span>
+                        <span className="font-semibold">KSh {sale.cogs.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {sale.grossProfit !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Gross Profit:</span>
+                        <span className={`font-semibold ${sale.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          KSh {sale.grossProfit.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {sale.grossProfit !== undefined && sale.totalAmount > 0 && (
+                      <div className="flex justify-between pt-1 border-t border-green-200 dark:border-green-800">
+                        <span>Profit Margin:</span>
+                        <span className={`font-semibold ${sale.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {((sale.grossProfit / sale.totalAmount) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment Method */}
           <div className="space-y-2">
             <Label htmlFor="payment">Payment Method</Label>
@@ -483,6 +550,19 @@ export default function EditSaleDialog({
             <p className="text-xs text-muted-foreground">
               Original status: {originalStatus}
             </p>
+          </div>
+
+          {/* Customer (Optional) */}
+          <div className="space-y-2">
+            <Label htmlFor="customer">Customer (Optional)</Label>
+            <Input
+              id="customer"
+              name="customer"
+              type="text"
+              placeholder="Enter customer name"
+              value={formData.customer}
+              onChange={handleInputChange}
+            />
           </div>
 
           <DialogFooter>

@@ -11,33 +11,33 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { Expense } from "../types/expense";
+import { ServiceOffered } from "../types/serviceOffered";
 
 // 🔗 Collection reference
-const expensesRef = collection(db, "expenses");
+const servicesOfferedRef = collection(db, "servicesOffered");
 
-// ➕ ADD EXPENSE
-export const addExpense = async (expense: Expense) => {
+// ➕ ADD SERVICE OFFERED
+export const addServiceOffered = async (serviceOffered: ServiceOffered) => {
   try {
-    await addDoc(expensesRef, {
-      ...expense,
+    await addDoc(servicesOfferedRef, {
+      ...serviceOffered,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error("Error adding expense:", error);
-    throw new Error("Failed to add expense. Please try again.");
+    console.error("Error adding service offered:", error);
+    throw new Error("Failed to add service offered. Please try again.");
   }
 };
 
-// 📥 GET EXPENSES
-export const getExpenses = async (): Promise<Expense[]> => {
+// 📥 GET SERVICES OFFERED
+export const getServicesOffered = async (): Promise<ServiceOffered[]> => {
   try {
-    const q = query(expensesRef, orderBy("date", "desc"));
+    const q = query(servicesOfferedRef, orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
       return {
         id: docSnap.id,
         ...data,
@@ -54,48 +54,52 @@ export const getExpenses = async (): Promise<Expense[]> => {
       };
     });
   } catch (error) {
-    console.error("Error fetching expenses:", error);
-    throw new Error("Failed to fetch expenses. Please try again.");
+    console.error("Error fetching services offered:", error);
+    throw new Error("Failed to fetch services offered. Please try again.");
   }
 };
 
-// ✏️ UPDATE EXPENSE
-export const updateExpense = async (id: string, data: Partial<Expense>) => {
+// ✏️ UPDATE SERVICE OFFERED
+export const updateServiceOffered = async (
+  id: string,
+  data: Partial<ServiceOffered>
+) => {
   try {
-    const expenseRef = doc(db, "expenses", id);
-    await updateDoc(expenseRef, {
+    const serviceOfferedRef = doc(db, "servicesOffered", id);
+    await updateDoc(serviceOfferedRef, {
       ...data,
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error("Error updating expense:", error);
-    throw new Error("Failed to update expense. Please try again.");
+    console.error("Error updating service offered:", error);
+    throw new Error("Failed to update service offered. Please try again.");
   }
 };
 
-// 🗑️ DELETE EXPENSE
-export const deleteExpense = async (id: string) => {
+// 🗑️ DELETE SERVICE OFFERED
+export const deleteServiceOffered = async (id: string) => {
   try {
-    const expenseRef = doc(db, "expenses", id);
-    await deleteDoc(expenseRef);
+    const serviceOfferedRef = doc(db, "servicesOffered", id);
+    await deleteDoc(serviceOfferedRef);
   } catch (error) {
-    console.error("Error deleting expense:", error);
-    throw new Error("Failed to delete expense. Please try again.");
+    console.error("Error deleting service offered:", error);
+    throw new Error("Failed to delete service offered. Please try again.");
   }
 };
 
-// 🔍 FILTER EXPENSES BY EXPENSE TYPE
-export const filterExpensesByExpenseType = async (expenseType: string): Promise<Expense[]> => {
+// 🔍 SEARCH SERVICES OFFERED BY SERVICE NAME
+export const searchServicesOfferedByServiceName = async (serviceName: string): Promise<ServiceOffered[]> => {
   try {
     const q = query(
-      expensesRef,
-      where("expenseType", "==", expenseType),
+      servicesOfferedRef,
+      where("serviceName", ">=", serviceName),
+      where("serviceName", "<=", serviceName + "\uf8ff"),
       orderBy("date", "desc")
     );
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
       return {
         id: docSnap.id,
         ...data,
@@ -111,23 +115,23 @@ export const filterExpensesByExpenseType = async (expenseType: string): Promise<
       };
     });
   } catch (error) {
-    console.error("Error filtering expenses by type:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
+    console.error("Error searching services offered:", error);
+    throw new Error("Failed to search services offered. Please try again.");
   }
 };
 
-// 🔍 FILTER EXPENSES BY CATEGORY
-export const filterExpensesByCategory = async (category: string): Promise<Expense[]> => {
+// 🔍 FILTER SERVICES OFFERED BY STATUS
+export const filterServicesOfferedByStatus = async (status: string): Promise<ServiceOffered[]> => {
   try {
     const q = query(
-      expensesRef,
-      where("category", "==", category),
+      servicesOfferedRef,
+      where("status", "==", status),
       orderBy("date", "desc")
     );
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
       return {
         id: docSnap.id,
         ...data,
@@ -143,27 +147,59 @@ export const filterExpensesByCategory = async (category: string): Promise<Expens
       };
     });
   } catch (error) {
-    console.error("Error filtering expenses:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
+    console.error("Error filtering services offered:", error);
+    throw new Error("Failed to filter services offered. Please try again.");
   }
 };
 
-// 🔍 FILTER EXPENSES BY AMOUNT RANGE
-export const filterExpensesByAmountRange = async (
+// 🔍 FILTER SERVICES OFFERED BY PAYMENT METHOD
+export const filterServicesOfferedByPayment = async (payment: string): Promise<ServiceOffered[]> => {
+  try {
+    const q = query(
+      servicesOfferedRef,
+      where("payment", "==", payment),
+      orderBy("date", "desc")
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
+      return {
+        id: docSnap.id,
+        ...data,
+        date: data.date instanceof Timestamp
+          ? data.date.toDate()
+          : data.date,
+        createdAt: data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate()
+          : data.createdAt,
+        updatedAt: data.updatedAt instanceof Timestamp
+          ? data.updatedAt.toDate()
+          : data.updatedAt,
+      };
+    });
+  } catch (error) {
+    console.error("Error filtering services offered:", error);
+    throw new Error("Failed to filter services offered. Please try again.");
+  }
+};
+
+// 🔍 FILTER SERVICES OFFERED BY AMOUNT RANGE
+export const filterServicesOfferedByAmountRange = async (
   minAmount: number,
   maxAmount: number
-): Promise<Expense[]> => {
+): Promise<ServiceOffered[]> => {
   try {
     const q = query(
-      expensesRef,
-      where("amount", ">=", minAmount),
-      where("amount", "<=", maxAmount),
+      servicesOfferedRef,
+      where("totalAmount", ">=", minAmount),
+      where("totalAmount", "<=", maxAmount),
       orderBy("date", "desc")
     );
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
       return {
         id: docSnap.id,
         ...data,
@@ -179,22 +215,22 @@ export const filterExpensesByAmountRange = async (
       };
     });
   } catch (error) {
-    console.error("Error filtering expenses:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
+    console.error("Error filtering services offered:", error);
+    throw new Error("Failed to filter services offered. Please try again.");
   }
 };
 
-// 🔍 FILTER EXPENSES BY DATE RANGE
-export const filterExpensesByDateRange = async (
+// 🔍 FILTER SERVICES OFFERED BY DATE RANGE
+export const filterServicesOfferedByDateRange = async (
   startDate: Date,
   endDate: Date
-): Promise<Expense[]> => {
+): Promise<ServiceOffered[]> => {
   try {
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
 
     const q = query(
-      expensesRef,
+      servicesOfferedRef,
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")
@@ -202,7 +238,7 @@ export const filterExpensesByDateRange = async (
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
+      const data = docSnap.data() as Omit<ServiceOffered, "id">;
       return {
         id: docSnap.id,
         ...data,
@@ -218,68 +254,7 @@ export const filterExpensesByDateRange = async (
       };
     });
   } catch (error) {
-    console.error("Error filtering expenses:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
-  }
-};
-
-// 🔍 FILTER EXPENSES BY MONTH AND YEAR
-export const filterExpensesByMonthAndYear = async (
-  month: number,
-  year: number
-): Promise<Expense[]> => {
-  try {
-    // Create start and end dates for the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    const startTimestamp = Timestamp.fromDate(startDate);
-    const endTimestamp = Timestamp.fromDate(endDate);
-
-    const q = query(
-      expensesRef,
-      where("date", ">=", startTimestamp),
-      where("date", "<=", endTimestamp),
-      orderBy("date", "desc")
-    );
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
-      return {
-        id: docSnap.id,
-        ...data,
-        date: data.date instanceof Timestamp
-          ? data.date.toDate()
-          : data.date,
-        createdAt: data.createdAt instanceof Timestamp
-          ? data.createdAt.toDate()
-          : data.createdAt,
-        updatedAt: data.updatedAt instanceof Timestamp
-          ? data.updatedAt.toDate()
-          : data.updatedAt,
-      };
-    });
-  } catch (error) {
-    console.error("Error filtering expenses:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
-  }
-};
-
-// 🔍 SEARCH EXPENSES BY DESCRIPTION OR CATEGORY
-export const searchExpenses = async (searchQuery: string): Promise<Expense[]> => {
-  try {
-    // Get all expenses and filter client-side
-    const expenses = await getExpenses();
-    const lowerQuery = searchQuery.toLowerCase();
-
-    return expenses.filter(
-      (expense) =>
-        expense.description.toLowerCase().includes(lowerQuery) ||
-        expense.category.toLowerCase().includes(lowerQuery)
-    );
-  } catch (error) {
-    console.error("Error searching expenses:", error);
-    throw new Error("Failed to search expenses. Please try again.");
+    console.error("Error filtering services offered:", error);
+    throw new Error("Failed to filter services offered. Please try again.");
   }
 };

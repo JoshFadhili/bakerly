@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2, TrendingDown, TrendingUp, Filter } from "lucide-react";
 import { getExpenses, deleteExpense, filterExpensesByCategory, filterExpensesByAmountRange, filterExpensesByMonthAndYear } from "@/services/expenseService";
-import { Expense } from "@/types/expense";
+import { Expense, ExpenseType } from "@/types/expense";
 import AddExpenseDialog from "@/components/expenses/AddExpenseDialog";
 import EditExpenseDialog from "@/components/expenses/EditExpenseDialog";
 
@@ -46,6 +46,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [expenseTypeFilter, setExpenseTypeFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
   const [amountMin, setAmountMin] = useState("");
@@ -65,7 +66,7 @@ export default function Expenses() {
   // Filter expenses based on search and filters
   useEffect(() => {
     filterExpenses();
-  }, [expenses, searchQuery, categoryFilter, monthFilter, yearFilter, amountMin, amountMax]);
+  }, [expenses, searchQuery, categoryFilter, expenseTypeFilter, monthFilter, yearFilter, amountMin, amountMax]);
 
   const fetchExpenses = async () => {
     try {
@@ -95,6 +96,11 @@ export default function Expenses() {
     // Category filter
     if (categoryFilter !== "all") {
       filtered = filtered.filter((expense) => expense.category === categoryFilter);
+    }
+
+    // Expense type filter
+    if (expenseTypeFilter !== "all") {
+      filtered = filtered.filter((expense) => expense.expenseType === expenseTypeFilter);
     }
 
     // Month filter
@@ -159,6 +165,7 @@ export default function Expenses() {
 
   const clearFilters = () => {
     setCategoryFilter("all");
+    setExpenseTypeFilter("all");
     setMonthFilter("all");
     setYearFilter("all");
     setAmountMin("");
@@ -281,7 +288,7 @@ export default function Expenses() {
         {/* Filters Section */}
         {showFilters && (
           <CardContent className="border-b">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {/* Category Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Category</label>
@@ -296,6 +303,21 @@ export default function Expenses() {
                         {category}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Expense Type Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Expense Type</label>
+                <Select value={expenseTypeFilter} onValueChange={setExpenseTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="operational">Operational Expense</SelectItem>
+                    <SelectItem value="service">Service Expense</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -396,6 +418,7 @@ export default function Expenses() {
                       <TableHead>Date & Time</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="hidden sm:table-cell">Category</TableHead>
+                      <TableHead className="hidden sm:table-cell">Type</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -412,6 +435,11 @@ export default function Expenses() {
                         <TableCell className="font-medium">{expense.description}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <Badge variant="secondary">{expense.category}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant={expense.expenseType === "operational" ? "default" : "outline"}>
+                            {expense.expenseType === "operational" ? "Operational" : "Service"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           KSh {expense.amount.toLocaleString()}

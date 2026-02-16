@@ -18,12 +18,44 @@ import { updateInventoryFromSale, adjustStock } from "./inventoryService";
 // 🔗 Collection reference
 const salesRef = collection(db, "sales");
 
+// 💰 CALCULATE COGS USING FIFO
+const calculateCOGS = async (itemName: string, quantity: number): Promise<number> => {
+  try {
+    const purchases = await getPurchasesByProductName(itemName);
+    let remainingQuantity = quantity;
+    let totalCOGS = 0;
+
+    for (const purchase of purchases) {
+      if (remainingQuantity <= 0) break;
+
+      const availableInBatch = purchase.itemsRemaining !== undefined ? purchase.itemsRemaining : purchase.items;
+
+      if (availableInBatch > 0) {
+        const deduction = Math.min(remainingQuantity, availableInBatch);
+        totalCOGS += deduction * purchase.itemPrice;
+        remainingQuantity -= deduction;
+      }
+    }
+
+    return totalCOGS;
+  } catch (error) {
+    console.error("Error calculating COGS:", error);
+    return 0;
+  }
+};
+
 // ➕ ADD SALE
 export const addSale = async (sale: Sale) => {
   try {
-    // Add the sale record
+    // Calculate COGS using FIFO
+    const cogs = await calculateCOGS(sale.itemName, sale.items);
+    const grossProfit = sale.totalAmount - cogs;
+
+    // Add the sale record with COGS and Gross Profit
     await addDoc(salesRef, {
       ...sale,
+      cogs,
+      grossProfit,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -212,6 +244,22 @@ export const updateSale = async (
           originalSale.items,
           newQuantity
         );
+      }
+
+      // Recalculate COGS and Gross Profit if item name, quantity, or total amount changed
+      const itemNameChanged = data.itemName !== undefined && data.itemName !== originalSale.itemName;
+      const amountChanged = data.totalAmount !== undefined && data.totalAmount !== originalSale.totalAmount;
+
+      if (itemNameChanged || quantityChanged || amountChanged) {
+        const newItemName = data.itemName ?? originalSale.itemName;
+        const newQuantity = data.items ?? originalSale.items;
+        const newTotalAmount = data.totalAmount ?? originalSale.totalAmount;
+
+        const cogs = await calculateCOGS(newItemName, newQuantity);
+        const grossProfit = newTotalAmount - cogs;
+
+        data.cogs = cogs;
+        data.grossProfit = grossProfit;
       }
     }
 

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { addExpense } from "@/services/expenseService";
+import { ExpenseType } from "@/types/expense";
 import { Calendar, Clock } from "lucide-react";
 
 interface AddExpenseDialogProps {
@@ -52,6 +53,7 @@ export default function AddExpenseDialog({
     description: "",
     category: "",
     amount: "",
+    expenseType: "operational" as ExpenseType,
   });
 
   const handleInputChange = (
@@ -75,6 +77,7 @@ export default function AddExpenseDialog({
         description: formData.description,
         category: formData.category,
         amount: Number(formData.amount),
+        expenseType: formData.expenseType,
         createdAt: new Date(),
       });
 
@@ -85,6 +88,7 @@ export default function AddExpenseDialog({
         description: "",
         category: "",
         amount: "",
+        expenseType: "operational" as ExpenseType,
       });
 
       onClose();
@@ -172,6 +176,26 @@ export default function AddExpenseDialog({
                     {category}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Expense Type */}
+          <div className="space-y-2">
+            <Label htmlFor="expenseType">Expense Type</Label>
+            <Select
+              value={formData.expenseType}
+              onValueChange={(value) =>
+                setFormData((prev) => ({ ...prev, expenseType: value as ExpenseType }))
+              }
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select expense type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="operational">Operational Expense</SelectItem>
+                <SelectItem value="service">Service Expense</SelectItem>
               </SelectContent>
             </Select>
           </div>

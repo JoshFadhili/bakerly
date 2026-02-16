@@ -3,7 +3,6 @@ import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -35,6 +34,7 @@ import {
   adjustStockWithBatch,
   getBatchesForProduct,
   recalculateInventoryFromBatches,
+  calculateStockValueFromBatches,
 } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
@@ -51,6 +51,7 @@ export default function Inventory() {
   const [stockMax, setStockMax] = useState<string>("");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -75,6 +76,16 @@ export default function Inventory() {
 
       setInventory(inventoryList);
       setProducts(productsList);
+
+      // Fetch stock values from batches for each product
+      const stockValuesMap: Record<string, number> = {};
+      for (const item of inventoryList as InventoryItem[]) {
+        if (item.name) {
+          const stockValue = await calculateStockValueFromBatches(item.name);
+          stockValuesMap[item.name] = stockValue;
+        }
+      }
+      setStockValues(stockValuesMap);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -115,9 +126,8 @@ export default function Inventory() {
   const totalStock = inventory.reduce((acc, item) => acc + item.stock, 0);
   const lowStockCount = inventory.filter((item) => item.stock < 10).length;
   const totalStockValue = inventory.reduce((acc, item) => {
-    const product = products.find(p => p.name === item.name);
-    const salePrice = product?.salePrice || 0;
-    return acc + (item.stock * salePrice);
+    const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
+    return acc + stockValue;
   }, 0);
 
   // Handle adjust stock
@@ -176,7 +186,7 @@ export default function Inventory() {
       "Product Name",
       "Category",
       "Stock In Hand",
-      "Sale Price",
+      "Unit Cost (from batch)",
       "Stock Value",
       "Status",
       "Last Updated",
@@ -184,9 +194,8 @@ export default function Inventory() {
     const csvContent = [
       headers.join(","),
       ...filteredInventory.map((item) => {
-        const product = products.find(p => p.name === item.name);
-        const salePrice = product?.salePrice || 0;
-        const stockValue = item.stock * salePrice;
+        const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
+        const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
         const isLowStock = item.stock < 10;
         const status = isLowStock ? "Low Stock" : "In Stock";
         const lastUpdated = item.updatedAt
@@ -201,8 +210,8 @@ export default function Inventory() {
           `"${item.name || ""}"`,
           `"${item.category || ""}"`,
           item.stock || 0,
-          product?.salePrice || 0,
-          stockValue || 0,
+          unitCost.toFixed(2),
+          stockValue.toFixed(2),
           status,
           lastUpdated,
         ].join(",");
@@ -256,16 +265,6 @@ export default function Inventory() {
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-4">
-            <Tabs value={filter} onValueChange={setFilter}>
-              <TabsList>
-                <TabsTrigger value="all">All Items</TabsTrigger>
-                <TabsTrigger value="low" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Low Stock
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -284,7 +283,7 @@ export default function Inventory() {
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filters
+              More Filters
             </Button>
             <Button
               variant="outline"
@@ -307,17 +306,36 @@ export default function Inventory() {
             </Button>
           </div>
         </CardHeader>
-        
+
         {/* Filters Section */}
         {showFilters && (
           <CardContent className="border-b">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Stock Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stock Status</label>
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All items" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="low" className="gap-1">
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Low Stock
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Category Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Category</label>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
+                    <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
@@ -372,7 +390,7 @@ export default function Inventory() {
                     <TableHead>Product Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Category</TableHead>
                     <TableHead>Stock In Hand</TableHead>
-                    <TableHead className="hidden lg:table-cell">Sale Price</TableHead>
+                    <TableHead className="hidden lg:table-cell">Unit Cost</TableHead>
                     <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -381,9 +399,8 @@ export default function Inventory() {
 
                 <TableBody>
                   {filteredInventory.map((item) => {
-                    const product = products.find(p => p.name === item.name);
-                    const salePrice = product?.salePrice || 0;
-                    const stockValue = item.stock * salePrice;
+                    const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
+                    const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
                     const isLowStock = item.stock < 10;
 
                     return (
@@ -392,10 +409,10 @@ export default function Inventory() {
                         <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
                         <TableCell>{item.stock} pcs</TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          KSh {product?.salePrice?.toLocaleString() || "N/A"}
+                          KSh {unitCost > 0 ? unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A"}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          KSh {stockValue.toLocaleString()}
+                          KSh {stockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
                           <Badge

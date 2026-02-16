@@ -472,6 +472,10 @@ export default function Purchases() {
                 <span className="font-medium">{selectedPurchase.time || ""}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Batch ID:</span>
+                <span className="font-medium">{selectedPurchase.batchId || ""}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Item Name:</span>
                 <span className="font-medium">{selectedPurchase.itemName}</span>
               </div>

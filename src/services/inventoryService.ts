@@ -488,3 +488,23 @@ export const recalculateInventoryFromBatches = async (inventoryId: string) => {
     throw new Error("Failed to recalculate inventory from batches. Please try again.");
   }
 };
+
+// 💰 Calculate stock value from batch data (cost of goods)
+export const calculateStockValueFromBatches = async (productName: string): Promise<number> => {
+  try {
+    // Get all batches for this product
+    const batches = await getBatchesForProduct(productName);
+
+    // Calculate total stock value by summing up (itemsRemaining * itemPrice) for all batches
+    const totalStockValue = batches.reduce((sum, batch: any) => {
+      const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
+      const itemPrice = batch.itemPrice || 0;
+      return sum + (itemsRemaining * itemPrice);
+    }, 0);
+
+    return totalStockValue;
+  } catch (error) {
+    console.error("Error calculating stock value from batches:", error);
+    return 0;
+  }
+};

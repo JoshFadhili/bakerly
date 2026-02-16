@@ -84,38 +84,6 @@ export const deleteExpense = async (id: string) => {
   }
 };
 
-// 🔍 FILTER EXPENSES BY EXPENSE TYPE
-export const filterExpensesByExpenseType = async (expenseType: string): Promise<Expense[]> => {
-  try {
-    const q = query(
-      expensesRef,
-      where("expenseType", "==", expenseType),
-      orderBy("date", "desc")
-    );
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as Omit<Expense, "id">;
-      return {
-        id: docSnap.id,
-        ...data,
-        date: data.date instanceof Timestamp
-          ? data.date.toDate()
-          : data.date,
-        createdAt: data.createdAt instanceof Timestamp
-          ? data.createdAt.toDate()
-          : data.createdAt,
-        updatedAt: data.updatedAt instanceof Timestamp
-          ? data.updatedAt.toDate()
-          : data.updatedAt,
-      };
-    });
-  } catch (error) {
-    console.error("Error filtering expenses by type:", error);
-    throw new Error("Failed to filter expenses. Please try again.");
-  }
-};
-
 // 🔍 FILTER EXPENSES BY CATEGORY
 export const filterExpensesByCategory = async (category: string): Promise<Expense[]> => {
   try {

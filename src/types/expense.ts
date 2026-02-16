@@ -1,5 +1,3 @@
-export type ExpenseType = "operational" | "service";
-
 export interface Expense {
   id?: string;
   date: Date;
@@ -7,7 +5,6 @@ export interface Expense {
   description: string;
   category: string;
   amount: number;
-  expenseType: ExpenseType;
   createdAt: Date;
   updatedAt?: Date;
 }

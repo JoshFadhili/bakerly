@@ -2,6 +2,7 @@ export interface Purchase {
   id?: string;
   batchId: string; // Unique batch identifier for FIFO tracking
   date: Date;
+  time: string; // Time of purchase in HH:MM format
   itemName: string; // Product name being purchased
   supplier: string; // Supplier name
   items: number; // Total number of items being purchased

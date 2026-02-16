@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -43,9 +42,11 @@ export default function Purchases() {
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
   
   // Filter states
-  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSupplier, setFilterSupplier] = useState<string>("");
+  const [filterMonth, setFilterMonth] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
   const [filterMinCost, setFilterMinCost] = useState<string>("");
   const [filterMaxCost, setFilterMaxCost] = useState<string>("");
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
@@ -79,12 +80,20 @@ export default function Purchases() {
     // Supplier filter
     const matchesSupplier = filterSupplier === "" || purchase.supplier.toLowerCase().includes(filterSupplier.toLowerCase());
 
+    // Month filter
+    const matchesMonth = filterMonth === "all" || 
+      (purchase.date instanceof Date ? purchase.date.getMonth() + 1 : new Date(purchase.date).getMonth() + 1) === parseInt(filterMonth);
+
+    // Year filter
+    const matchesYear = filterYear === "all" || 
+      (purchase.date instanceof Date ? purchase.date.getFullYear() : new Date(purchase.date).getFullYear()) === parseInt(filterYear);
+
     // Cost range filter
     const matchesCost =
       (filterMinCost === "" || purchase.totalCost >= Number(filterMinCost)) &&
       (filterMaxCost === "" || purchase.totalCost <= Number(filterMaxCost));
 
-    return matchesSearch && matchesStatus && matchesSupplier && matchesCost;
+    return matchesSearch && matchesStatus && matchesSupplier && matchesMonth && matchesYear && matchesCost;
   });
 
   // Check if any active filters
@@ -92,27 +101,42 @@ export default function Purchases() {
     setHasActiveFilters(
       filterStatus !== "all" ||
       filterSupplier !== "" ||
+      filterMonth !== "all" ||
+      filterYear !== "all" ||
       filterMinCost !== "" ||
       filterMaxCost !== ""
     );
-  }, [filterStatus, filterSupplier, filterMinCost, filterMaxCost]);
+  }, [filterStatus, filterSupplier, filterMonth, filterYear, filterMinCost, filterMaxCost]);
 
   // Clear all filters
   const clearFilters = () => {
     setFilterStatus("all");
     setFilterSupplier("");
+    setFilterMonth("all");
+    setFilterYear("all");
     setFilterMinCost("");
     setFilterMaxCost("");
   };
 
+  // Get unique years from purchases
+  const getAvailableYears = () => {
+    const years = new Set(
+      purchases.map((purchase) => 
+        purchase.date instanceof Date ? purchase.date.getFullYear() : new Date(purchase.date).getFullYear()
+      )
+    );
+    return Array.from(years).sort((a, b) => b - a);
+  };
+
   // Export to CSV
   const exportToCSV = () => {
-    const headers = ["Date", "Item Name", "Supplier", "Items", "Item Price", "Total Cost", "Status"];
+    const headers = ["Date", "Time", "Item Name", "Supplier", "Items", "Item Price", "Total Cost", "Status"];
     const csvContent = [
       headers.join(","),
       ...filteredPurchases.map((purchase) =>
         [
           purchase.date.toISOString().split('T')[0],
+          purchase.time || "",
           purchase.itemName,
           purchase.supplier,
           purchase.items,
@@ -200,11 +224,11 @@ export default function Purchases() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsFilterDialogOpen(true)}
+                onClick={() => setShowFilters(!showFilters)}
                 className={hasActiveFilters ? "border-erp-blue text-erp-blue" : ""}
               >
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">Filter</span>
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
                 {hasActiveFilters && (
                   <span className="ml-1 h-2 w-2 rounded-full bg-erp-blue" />
                 )}
@@ -220,6 +244,111 @@ export default function Purchases() {
             </div>
           </div>
         </CardHeader>
+        
+        {/* Filters Section */}
+        {showFilters && (
+          <CardContent className="border-b">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="received">Received</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Supplier Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Supplier</label>
+                <Input
+                  placeholder="Search supplier..."
+                  value={filterSupplier}
+                  onChange={(e) => setFilterSupplier(e.target.value)}
+                />
+              </div>
+
+              {/* Month Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Month</label>
+                <Select value={filterMonth} onValueChange={setFilterMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All months" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    <SelectItem value="1">January</SelectItem>
+                    <SelectItem value="2">February</SelectItem>
+                    <SelectItem value="3">March</SelectItem>
+                    <SelectItem value="4">April</SelectItem>
+                    <SelectItem value="5">May</SelectItem>
+                    <SelectItem value="6">June</SelectItem>
+                    <SelectItem value="7">July</SelectItem>
+                    <SelectItem value="8">August</SelectItem>
+                    <SelectItem value="9">September</SelectItem>
+                    <SelectItem value="10">October</SelectItem>
+                    <SelectItem value="11">November</SelectItem>
+                    <SelectItem value="12">December</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Year</label>
+                <Select value={filterYear} onValueChange={setFilterYear}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All years" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {getAvailableYears().map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Cost Range Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Cost Range (KSh)</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filterMinCost}
+                    onChange={(e) => setFilterMinCost(e.target.value)}
+                    min="0"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filterMaxCost}
+                    onChange={(e) => setFilterMaxCost(e.target.value)}
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="mt-4">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          </CardContent>
+        )}
+
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading purchases...</p>
@@ -236,6 +365,7 @@ export default function Purchases() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
                     <TableHead>Item Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Supplier</TableHead>
                     <TableHead>Items</TableHead>
@@ -253,6 +383,7 @@ export default function Purchases() {
                           ? purchase.date.toLocaleDateString()
                           : new Date(purchase.date).toLocaleDateString()}
                       </TableCell>
+                      <TableCell>{purchase.time || ""}</TableCell>
                       <TableCell>{purchase.itemName}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {purchase.supplier}
@@ -320,77 +451,6 @@ export default function Purchases() {
         purchase={selectedPurchase}
       />
 
-      {/* Filter Dialog */}
-      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Filter Purchases</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="filterStatus">Status</Label>
-              <Select
-                value={filterStatus}
-                onValueChange={setFilterStatus}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="received">Received</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filterSupplier">Supplier</Label>
-              <Input
-                id="filterSupplier"
-                placeholder="Search supplier..."
-                value={filterSupplier}
-                onChange={(e) => setFilterSupplier(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cost Range (KSh)</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Min"
-                  type="number"
-                  min="0"
-                  value={filterMinCost}
-                  onChange={(e) => setFilterMinCost(e.target.value)}
-                />
-                <Input
-                  placeholder="Max"
-                  type="number"
-                  min="0"
-                  value={filterMaxCost}
-                  onChange={(e) => setFilterMaxCost(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-            >
-              Clear Filters
-            </Button>
-            <Button onClick={() => setIsFilterDialogOpen(false)}>
-              Apply Filters
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* View Purchase Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-md">
@@ -406,6 +466,10 @@ export default function Purchases() {
                     ? selectedPurchase.date.toLocaleDateString()
                     : new Date(selectedPurchase.date).toLocaleDateString()}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Time:</span>
+                <span className="font-medium">{selectedPurchase.time || ""}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Item Name:</span>

@@ -3,7 +3,6 @@ import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -52,6 +51,7 @@ export default function Expenses() {
   const [amountMin, setAmountMin] = useState("");
   const [amountMax, setAmountMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -67,6 +67,18 @@ export default function Expenses() {
   useEffect(() => {
     filterExpenses();
   }, [expenses, searchQuery, categoryFilter, expenseTypeFilter, monthFilter, yearFilter, amountMin, amountMax]);
+
+  // Check if any active filters
+  useEffect(() => {
+    setHasActiveFilters(
+      categoryFilter !== "all" ||
+      expenseTypeFilter !== "all" ||
+      monthFilter !== "all" ||
+      yearFilter !== "all" ||
+      amountMin !== "" ||
+      amountMax !== ""
+    );
+  }, [categoryFilter, expenseTypeFilter, monthFilter, yearFilter, amountMin, amountMax]);
 
   const fetchExpenses = async () => {
     try {
@@ -253,13 +265,7 @@ export default function Expenses() {
       {/* Expenses Table */}
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Tabs defaultValue="expenses">
-              <TabsList>
-                <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          <CardTitle className="text-lg font-semibold">Expense Records</CardTitle>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -270,18 +276,24 @@ export default function Expenses() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-            </Button>
-            <Button variant="expense" size="sm" onClick={handleAddExpense}>
-              <Plus className="h-4 w-4" />
-              Add Expense
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className={hasActiveFilters ? "border-erp-blue text-erp-blue" : ""}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+                {hasActiveFilters && (
+                  <span className="ml-1 h-2 w-2 rounded-full bg-erp-blue" />
+                )}
+              </Button>
+              <Button variant="expense" size="sm" onClick={handleAddExpense}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Expense</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         

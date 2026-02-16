@@ -35,8 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
+import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Sales() {
@@ -47,12 +47,16 @@ export default function Sales() {
   const [isNewSaleDialogOpen, setIsNewSaleDialogOpen] = useState(false);
   const [isNewServiceOfferedDialogOpen, setIsNewServiceOfferedDialogOpen] = useState(false);
   const { isNewSaleDialogOpen: globalDialogOpen, closeNewSaleDialog } = useSaleDialog();
+  const { isNewServiceOfferedDialogOpen: globalServiceDialogOpen, closeNewServiceOfferedDialog } = useServiceOfferedDialog();
   const [activeTab, setActiveTab] = useState("sales");
   
   // Filter states
-  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPayment, setFilterPayment] = useState<string>("all");
+  const [filterCustomer, setFilterCustomer] = useState<string>("");
+  const [filterMonth, setFilterMonth] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
   const [filterMinAmount, setFilterMinAmount] = useState<string>("");
   const [filterMaxAmount, setFilterMaxAmount] = useState<string>("");
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
@@ -75,6 +79,15 @@ export default function Sales() {
     }
   }, [globalDialogOpen, closeNewSaleDialog]);
 
+  // Sync with global service offered dialog state
+  useEffect(() => {
+    if (globalServiceDialogOpen) {
+      setIsNewServiceOfferedDialogOpen(true);
+      setActiveTab("services");
+      closeNewServiceOfferedDialog();
+    }
+  }, [globalServiceDialogOpen, closeNewServiceOfferedDialog]);
+
   // Fetch sales and services offered from Firestore
   const fetchData = async () => {
     try {
@@ -95,6 +108,18 @@ export default function Sales() {
     fetchData();
   }, []);
 
+  // Calculate sales statistics
+  const totalSales = sales.length;
+  const completedSales = sales.filter((s) => s.status === "completed").length;
+  const pendingSales = sales.filter((s) => s.status === "pending").length;
+  const totalSalesAmount = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+
+  // Calculate services statistics
+  const totalServices = servicesOffered.length;
+  const completedServices = servicesOffered.filter((s) => s.status === "completed").length;
+  const pendingServices = servicesOffered.filter((s) => s.status === "pending").length;
+  const totalServicesAmount = servicesOffered.reduce((acc, s) => acc + s.totalAmount, 0);
+
   // Filter sales based on search query and active filters
   const filteredSales = sales.filter((sale) => {
     // Search filter
@@ -110,12 +135,24 @@ export default function Sales() {
     // Payment filter
     const matchesPayment = filterPayment === "all" || sale.payment === filterPayment;
 
+    // Customer filter
+    const matchesCustomer = filterCustomer === "" || 
+      (sale.customer && sale.customer.toLowerCase().includes(filterCustomer.toLowerCase()));
+
+    // Month filter
+    const matchesMonth = filterMonth === "all" || 
+      (sale.date instanceof Date ? sale.date.getMonth() + 1 : new Date(sale.date).getMonth() + 1) === parseInt(filterMonth);
+
+    // Year filter
+    const matchesYear = filterYear === "all" || 
+      (sale.date instanceof Date ? sale.date.getFullYear() : new Date(sale.date).getFullYear()) === parseInt(filterYear);
+
     // Amount range filter
     const matchesAmount =
       (filterMinAmount === "" || sale.totalAmount >= Number(filterMinAmount)) &&
       (filterMaxAmount === "" || sale.totalAmount <= Number(filterMaxAmount));
 
-    return matchesSearch && matchesStatus && matchesPayment && matchesAmount;
+    return matchesSearch && matchesStatus && matchesPayment && matchesCustomer && matchesMonth && matchesYear && matchesAmount;
   });
 
   // Filter services offered based on search query and active filters
@@ -133,12 +170,24 @@ export default function Sales() {
     // Payment filter
     const matchesPayment = filterPayment === "all" || service.payment === filterPayment;
 
+    // Customer filter
+    const matchesCustomer = filterCustomer === "" || 
+      (service.customer && service.customer.toLowerCase().includes(filterCustomer.toLowerCase()));
+
+    // Month filter
+    const matchesMonth = filterMonth === "all" || 
+      (service.date instanceof Date ? service.date.getMonth() + 1 : new Date(service.date).getMonth() + 1) === parseInt(filterMonth);
+
+    // Year filter
+    const matchesYear = filterYear === "all" || 
+      (service.date instanceof Date ? service.date.getFullYear() : new Date(service.date).getFullYear()) === parseInt(filterYear);
+
     // Amount range filter
     const matchesAmount =
       (filterMinAmount === "" || service.totalAmount >= Number(filterMinAmount)) &&
       (filterMaxAmount === "" || service.totalAmount <= Number(filterMaxAmount));
 
-    return matchesSearch && matchesStatus && matchesPayment && matchesAmount;
+    return matchesSearch && matchesStatus && matchesPayment && matchesCustomer && matchesMonth && matchesYear && matchesAmount;
   });
 
   // Check if any active filters
@@ -146,17 +195,35 @@ export default function Sales() {
     setHasActiveFilters(
       filterStatus !== "all" ||
       filterPayment !== "all" ||
+      filterCustomer !== "" ||
+      filterMonth !== "all" ||
+      filterYear !== "all" ||
       filterMinAmount !== "" ||
       filterMaxAmount !== ""
     );
-  }, [filterStatus, filterPayment, filterMinAmount, filterMaxAmount]);
+  }, [filterStatus, filterPayment, filterCustomer, filterMonth, filterYear, filterMinAmount, filterMaxAmount]);
 
   // Clear all filters
   const clearFilters = () => {
     setFilterStatus("all");
     setFilterPayment("all");
+    setFilterCustomer("");
+    setFilterMonth("all");
+    setFilterYear("all");
     setFilterMinAmount("");
     setFilterMaxAmount("");
+  };
+
+  // Get unique years from sales and services
+  const getAvailableYears = () => {
+    const salesYears = sales.map((sale) => 
+      sale.date instanceof Date ? sale.date.getFullYear() : new Date(sale.date).getFullYear()
+    );
+    const serviceYears = servicesOffered.map((service) => 
+      service.date instanceof Date ? service.date.getFullYear() : new Date(service.date).getFullYear()
+    );
+    const years = new Set([...salesYears, ...serviceYears]);
+    return Array.from(years).sort((a, b) => b - a);
   };
 
   // Export to CSV
@@ -245,6 +312,53 @@ export default function Sales() {
 
   return (
     <ERPLayout title="Sales" subtitle="Track and manage all sales transactions">
+      {/* Summary Cards */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        {activeTab === "sales" ? (
+          <>
+            <Card className="border-l-4 border-l-erp-blue">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Sales</p>
+                <p className="text-2xl font-bold">{totalSales}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-erp-green">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Completed Sales</p>
+                <p className="text-2xl font-bold">{completedSales}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-erp-orange">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Pending Sales</p>
+                <p className="text-2xl font-bold">{pendingSales}</p>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card className="border-l-4 border-l-erp-blue">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Services Sold</p>
+                <p className="text-2xl font-bold">{totalServices}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-erp-green">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Completed Services</p>
+                <p className="text-2xl font-bold">{completedServices}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-erp-orange">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Pending Services</p>
+                <p className="text-2xl font-bold">{pendingServices}</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg font-semibold">
@@ -264,11 +378,11 @@ export default function Sales() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsFilterDialogOpen(true)}
+                onClick={() => setShowFilters(!showFilters)}
                 className={hasActiveFilters ? "border-erp-blue text-erp-blue" : ""}
               >
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">Filter</span>
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
                 {hasActiveFilters && (
                   <span className="ml-1 h-2 w-2 rounded-full bg-erp-blue" />
                 )}
@@ -280,6 +394,128 @@ export default function Sales() {
             </div>
           </div>
         </CardHeader>
+        
+        {/* Filters Section */}
+        {showFilters && (
+          <CardContent className="border-b">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment Method Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Payment Method</label>
+                <Select value={filterPayment} onValueChange={setFilterPayment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All payment methods" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payment Methods</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="M-Pesa">M-Pesa</SelectItem>
+                    <SelectItem value="Card">Card</SelectItem>
+                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Customer Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer</label>
+                <Input
+                  placeholder="Search customer..."
+                  value={filterCustomer}
+                  onChange={(e) => setFilterCustomer(e.target.value)}
+                />
+              </div>
+
+              {/* Month Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Month</label>
+                <Select value={filterMonth} onValueChange={setFilterMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All months" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    <SelectItem value="1">January</SelectItem>
+                    <SelectItem value="2">February</SelectItem>
+                    <SelectItem value="3">March</SelectItem>
+                    <SelectItem value="4">April</SelectItem>
+                    <SelectItem value="5">May</SelectItem>
+                    <SelectItem value="6">June</SelectItem>
+                    <SelectItem value="7">July</SelectItem>
+                    <SelectItem value="8">August</SelectItem>
+                    <SelectItem value="9">September</SelectItem>
+                    <SelectItem value="10">October</SelectItem>
+                    <SelectItem value="11">November</SelectItem>
+                    <SelectItem value="12">December</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Year</label>
+                <Select value={filterYear} onValueChange={setFilterYear}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All years" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {getAvailableYears().map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Amount Range Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Amount Range (KSh)</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value)}
+                    min="0"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value)}
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="mt-4">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          </CardContent>
+        )}
+
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -513,86 +749,6 @@ export default function Sales() {
         onServiceOfferedUpdated={fetchData}
         serviceOffered={selectedServiceOffered}
       />
-
-      {/* Filter Dialog */}
-      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Filter {activeTab === "sales" ? "Sales" : "Services Offered"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="filterStatus">Status</Label>
-              <Select
-                value={filterStatus}
-                onValueChange={setFilterStatus}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filterPayment">Payment Method</Label>
-              <Select
-                value={filterPayment}
-                onValueChange={setFilterPayment}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Payment Methods</SelectItem>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="M-Pesa">M-Pesa</SelectItem>
-                  <SelectItem value="Card">Card</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Amount Range (KSh)</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Min"
-                  type="number"
-                  min="0"
-                  value={filterMinAmount}
-                  onChange={(e) => setFilterMinAmount(e.target.value)}
-                />
-                <Input
-                  placeholder="Max"
-                  type="number"
-                  min="0"
-                  value={filterMaxAmount}
-                  onChange={(e) => setFilterMaxAmount(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-            >
-              Clear Filters
-            </Button>
-            <Button onClick={() => setIsFilterDialogOpen(false)}>
-              Apply Filters
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* View Sale Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

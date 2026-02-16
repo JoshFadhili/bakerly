@@ -1,6 +1,7 @@
 import { getSales, filterSalesByDateRange } from "./salesService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
 import { getProducts } from "./productService";
+import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
 
 // Types for reports
 export interface ReportItem {
@@ -97,7 +98,7 @@ const generateReportId = (index: number): string => {
   return `RPT-${year}${month}${day}-${(index + 1).toString().padStart(4, "0")}-${random}`;
 };
 
-// Get all report items (sales)
+// Get all report items (sales and services)
 export const getReportItems = async (
   startDate?: Date,
   endDate?: Date,
@@ -111,14 +112,17 @@ export const getReportItems = async (
   try {
     let sales: any[] = [];
     let purchases: any[] = [];
+    let servicesOffered: any[] = [];
 
     // Get data based on date range
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
       purchases = await filterPurchasesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
       purchases = await getPurchases();
+      servicesOffered = await getServicesOffered();
     }
 
     const products = await getProducts();
@@ -178,6 +182,56 @@ export const getReportItems = async (
       });
     }
 
+    // Process services offered
+    for (const service of servicesOffered) {
+      if (service.status !== "completed") continue;
+
+      const serviceCategory = "Services";
+      const serviceType = "service";
+
+      // Filter by type
+      if (type && serviceType !== type) continue;
+
+      // Filter by category
+      if (category && serviceCategory !== category) continue;
+
+      // Services have COGS = 0
+      const cogs = 0;
+      const grossProfit = service.totalAmount;
+
+      // Filter by profit/loss type
+      if (profitLossType === "profit" && grossProfit < 0) continue;
+      if (profitLossType === "loss" && grossProfit >= 0) continue;
+
+      // Filter by amount range
+      if (minAmount !== undefined && service.totalAmount < minAmount) continue;
+      if (maxAmount !== undefined && service.totalAmount > maxAmount) continue;
+
+      // Filter by search term
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+          service.serviceName?.toLowerCase().includes(searchLower) ||
+          serviceCategory.toLowerCase().includes(searchLower) ||
+          service.totalAmount.toString().includes(searchLower) ||
+          service.customer?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) continue;
+      }
+
+      reportItems.push({
+        reportId: generateReportId(reportItems.length),
+        productService: service.serviceName,
+        description: service.customer ? `Service: ${service.serviceName} for ${service.customer}` : `Service: ${service.serviceName}`,
+        category: serviceCategory,
+        amount: 1,
+        revenue: service.totalAmount,
+        cog: cogs,
+        grossProfitLoss: grossProfit,
+        date: service.date,
+        type: serviceType,
+      });
+    }
+
     // Sort by date descending
     return reportItems.sort((a, b) => b.date.getTime() - a.date.getTime());
   } catch (error) {
@@ -193,14 +247,18 @@ export const getReportSummary = async (
 ): Promise<ReportSummary> => {
   try {
     let sales: any[] = [];
+    let servicesOffered: any[] = [];
 
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
+      servicesOffered = await getServicesOffered();
     }
 
     const completedSales = sales.filter((s) => s.status === "completed");
+    const completedServices = servicesOffered.filter((s) => s.status === "completed");
     const purchases = startDate && endDate
       ? await filterPurchasesByDateRange(startDate, endDate)
       : await getPurchases();
@@ -219,7 +277,16 @@ export const getReportSummary = async (
       productRevenueMap.set(sale.itemName, currentRevenue + sale.totalAmount);
     }
 
-    // Find best performing product
+    // Add services to gross profit (services have COGS = 0)
+    for (const service of completedServices) {
+      totalGrossProfit += service.totalAmount;
+
+      // Track revenue by service name
+      const currentRevenue = productRevenueMap.get(service.serviceName) || 0;
+      productRevenueMap.set(service.serviceName, currentRevenue + service.totalAmount);
+    }
+
+    // Find best performing product/service
     let bestPerformingProduct = "N/A";
     let maxRevenue = 0;
     for (const [product, revenue] of productRevenueMap.entries()) {
@@ -229,17 +296,23 @@ export const getReportSummary = async (
       }
     }
 
-    // Calculate average order value
-    const totalRevenue = completedSales.reduce(
+    // Calculate average order value (includes both sales and services)
+    const totalSalesRevenue = completedSales.reduce(
       (sum, sale) => sum + sale.totalAmount,
       0
     );
+    const totalServicesRevenue = completedServices.reduce(
+      (sum, service) => sum + service.totalAmount,
+      0
+    );
+    const totalRevenue = totalSalesRevenue + totalServicesRevenue;
+    const totalTransactions = completedSales.length + completedServices.length;
     const averageOrderValue =
-      completedSales.length > 0 ? totalRevenue / completedSales.length : 0;
+      totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
     return {
       totalGrossProfitLoss: totalGrossProfit,
-      totalSalesCount: completedSales.length,
+      totalSalesCount: totalTransactions,
       averageOrderValue,
       bestPerformingProduct,
     };
@@ -256,14 +329,18 @@ export const getSalesGrowthData = async (
 ): Promise<SalesGrowthData[]> => {
   try {
     let sales: any[] = [];
+    let servicesOffered: any[] = [];
 
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
+      servicesOffered = await getServicesOffered();
     }
 
     const completedSales = sales.filter((s) => s.status === "completed");
+    const completedServices = servicesOffered.filter((s) => s.status === "completed");
 
     // Group by month
     const monthlyData = new Map<string, number>();
@@ -275,6 +352,15 @@ export const getSalesGrowthData = async (
         .padStart(2, "0")}`;
       const currentSales = monthlyData.get(monthKey) || 0;
       monthlyData.set(monthKey, currentSales + sale.totalAmount);
+    }
+
+    for (const service of completedServices) {
+      const date = new Date(service.date);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}`;
+      const currentSales = monthlyData.get(monthKey) || 0;
+      monthlyData.set(monthKey, currentSales + service.totalAmount);
     }
 
     // Convert to array and sort
@@ -294,16 +380,20 @@ export const getRevenueByProductData = async (
 ): Promise<RevenueByProductData[]> => {
   try {
     let sales: any[] = [];
+    let servicesOffered: any[] = [];
 
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
+      servicesOffered = await getServicesOffered();
     }
 
     const completedSales = sales.filter((s) => s.status === "completed");
+    const completedServices = servicesOffered.filter((s) => s.status === "completed");
 
-    // Group by product and month
+    // Group by product/service and month
     const productData = new Map<string, Map<string, number>>();
 
     for (const sale of completedSales) {
@@ -319,6 +409,21 @@ export const getRevenueByProductData = async (
       const productMonthData = productData.get(sale.itemName)!;
       const currentRevenue = productMonthData.get(monthKey) || 0;
       productMonthData.set(monthKey, currentRevenue + sale.totalAmount);
+    }
+
+    for (const service of completedServices) {
+      const date = new Date(service.date);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}`;
+
+      if (!productData.has(service.serviceName)) {
+        productData.set(service.serviceName, new Map());
+      }
+
+      const serviceMonthData = productData.get(service.serviceName)!;
+      const currentRevenue = serviceMonthData.get(monthKey) || 0;
+      serviceMonthData.set(monthKey, currentRevenue + service.totalAmount);
     }
 
     // Convert to array
@@ -343,14 +448,18 @@ export const getRevenueByCategoryData = async (
 ): Promise<RevenueByCategoryData[]> => {
   try {
     let sales: any[] = [];
-
+    let servicesOffered: any[] = [];
+    
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
+      servicesOffered = await getServicesOffered();
     }
 
     const completedSales = sales.filter((s) => s.status === "completed");
+    const completedServices = servicesOffered.filter((s) => s.status === "completed");
     const products = await getProducts();
     const productMap = new Map(
       products.map((p) => [p.name.toLowerCase(), p.category])
@@ -363,6 +472,13 @@ export const getRevenueByCategoryData = async (
       const category = productMap.get(sale.itemName?.toLowerCase()) || "Uncategorized";
       const currentRevenue = categoryData.get(category) || 0;
       categoryData.set(category, currentRevenue + sale.totalAmount);
+    }
+
+    // Add services to "Services" category
+    const servicesCategory = "Services";
+    for (const service of completedServices) {
+      const currentRevenue = categoryData.get(servicesCategory) || 0;
+      categoryData.set(servicesCategory, currentRevenue + service.totalAmount);
     }
 
     // Convert to array and sort by revenue descending
@@ -382,16 +498,20 @@ export const getBestPerformingProductsData = async (
 ): Promise<BestPerformingProductsData[]> => {
   try {
     let sales: any[] = [];
-
+    let servicesOffered: any[] = [];
+    
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
+      servicesOffered = await getServicesOffered();
     }
 
     const completedSales = sales.filter((s) => s.status === "completed");
+    const completedServices = servicesOffered.filter((s) => s.status === "completed");
 
-    // Group by product
+    // Group by product/service
     const productData = new Map<string, { quantity: number; revenue: number }>();
 
     for (const sale of completedSales) {
@@ -402,6 +522,17 @@ export const getBestPerformingProductsData = async (
       productData.set(sale.itemName, {
         quantity: currentData.quantity + sale.items,
         revenue: currentData.revenue + sale.totalAmount,
+      });
+    }
+
+    for (const service of completedServices) {
+      const currentData = productData.get(service.serviceName) || {
+        quantity: 0,
+        revenue: 0,
+      };
+      productData.set(service.serviceName, {
+        quantity: currentData.quantity + 1, // Services count as 1 unit
+        revenue: currentData.revenue + service.totalAmount,
       });
     }
 
@@ -424,12 +555,15 @@ export const getAvailableCategories = async (): Promise<string[]> => {
   try {
     const products = await getProducts();
     const categories = new Set<string>();
-
+    
     for (const product of products) {
       if (product.category) {
         categories.add(product.category);
       }
     }
+
+    // Add "Services" category
+    categories.add("Services");
 
     return Array.from(categories).sort();
   } catch (error) {

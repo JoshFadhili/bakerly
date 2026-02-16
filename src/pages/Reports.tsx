@@ -68,6 +68,7 @@ export default function Reports() {
   const [filteredReportItems, setFilteredReportItems] = useState<ReportItem[]>([]);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -279,6 +280,28 @@ export default function Reports() {
     });
   };
 
+  // Clear filters
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("all");
+    setSelectedType("all");
+    setSelectedProfitLoss("all");
+    setMinAmount("");
+    setMaxAmount("");
+    setDateFilter("all");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  // Check if any active filters
+  const hasActiveFilters = searchTerm !== "" ||
+    selectedCategory !== "all" ||
+    selectedType !== "all" ||
+    selectedProfitLoss !== "all" ||
+    minAmount !== "" ||
+    maxAmount !== "" ||
+    dateFilter !== "all";
+
   // Get filtered chart data based on period
   const getFilteredSalesGrowthData = () => {
     if (salesGrowthPeriod === "this_month_vs_last_month") {
@@ -337,10 +360,24 @@ export default function Reports() {
             <TabsTrigger value="table">Table View</TabsTrigger>
             <TabsTrigger value="charts">Charts</TabsTrigger>
           </TabsList>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className={hasActiveFilters ? "border-erp-blue text-erp-blue" : ""}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-1 h-2 w-2 rounded-full bg-erp-blue" />
+              )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="table" className="space-y-6">
@@ -377,144 +414,153 @@ export default function Reports() {
           )}
 
           {/* Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Filters
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Search */}
-                <div className="space-y-2">
-                  <Label htmlFor="search">Search</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {showFilters && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Search */}
+                  <div className="space-y-2">
+                    <Label htmlFor="search">Search</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="search"
+                        placeholder="Search products, categories..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger id="category">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Type Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Type</Label>
+                    <Select value={selectedType} onValueChange={setSelectedType}>
+                      <SelectTrigger id="type">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="goods">Goods</SelectItem>
+                        <SelectItem value="service">Service</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Profit/Loss Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="profitLoss">Profit/Loss</Label>
+                    <Select value={selectedProfitLoss} onValueChange={setSelectedProfitLoss}>
+                      <SelectTrigger id="profitLoss">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="profit">Profit Only</SelectItem>
+                        <SelectItem value="loss">Loss Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="dateFilter">Time Period</Label>
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger id="dateFilter">
+                        <SelectValue placeholder="All Time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="this_month">This Month</SelectItem>
+                        <SelectItem value="last_month">Last Month</SelectItem>
+                        <SelectItem value="this_year">This Year</SelectItem>
+                        <SelectItem value="last_year">Last Year</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Custom Date Range */}
+                  {dateFilter === "custom" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Amount Range */}
+                  <div className="space-y-2">
+                    <Label htmlFor="minAmount">Min Amount</Label>
                     <Input
-                      id="search"
-                      placeholder="Search products, categories..."
-                      className="pl-9"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      id="minAmount"
+                      type="number"
+                      placeholder="0"
+                      value={minAmount}
+                      onChange={(e) => setMinAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxAmount">Max Amount</Label>
+                    <Input
+                      id="maxAmount"
+                      type="number"
+                      placeholder="No limit"
+                      value={maxAmount}
+                      onChange={(e) => setMaxAmount(e.target.value)}
                     />
                   </div>
                 </div>
 
-                {/* Category Filter */}
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Clear Filters Button */}
+                <div className="mt-4">
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
                 </div>
-
-                {/* Type Filter */}
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
-                  <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger id="type">
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="goods">Goods</SelectItem>
-                      <SelectItem value="service">Service</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Profit/Loss Filter */}
-                <div className="space-y-2">
-                  <Label htmlFor="profitLoss">Profit/Loss</Label>
-                  <Select value={selectedProfitLoss} onValueChange={setSelectedProfitLoss}>
-                    <SelectTrigger id="profitLoss">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="profit">Profit Only</SelectItem>
-                      <SelectItem value="loss">Loss Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Date Filter */}
-                <div className="space-y-2">
-                  <Label htmlFor="dateFilter">Time Period</Label>
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger id="dateFilter">
-                      <SelectValue placeholder="All Time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Time</SelectItem>
-                      <SelectItem value="this_month">This Month</SelectItem>
-                      <SelectItem value="last_month">Last Month</SelectItem>
-                      <SelectItem value="this_year">This Year</SelectItem>
-                      <SelectItem value="last_year">Last Year</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Custom Date Range */}
-                {dateFilter === "custom" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">End Date</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Amount Range */}
-                <div className="space-y-2">
-                  <Label htmlFor="minAmount">Min Amount</Label>
-                  <Input
-                    id="minAmount"
-                    type="number"
-                    placeholder="0"
-                    value={minAmount}
-                    onChange={(e) => setMinAmount(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxAmount">Max Amount</Label>
-                  <Input
-                    id="maxAmount"
-                    type="number"
-                    placeholder="No limit"
-                    value={maxAmount}
-                    onChange={(e) => setMaxAmount(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Report Table */}
           <Card>

@@ -18,7 +18,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Search, Calendar, Download } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Calendar, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
   getOverallFinancialSummary,
@@ -29,7 +29,6 @@ import {
   getRevenueVsExpensesData,
   getMonthlyProfitTrendData,
   getExpenseBreakdownData,
-  searchFinancialData,
   type FinancialSummary,
   type DailyFinancialData,
   type MonthlyFinancialData,
@@ -74,7 +73,6 @@ const SummaryCard = ({ title, value, icon: Icon, color, trend }: any) => (
 
 export default function Finance() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   
   // Overview tab state
@@ -196,17 +194,60 @@ export default function Finance() {
     fetchAnnualData();
   }, [annualYear]);
 
-  // Handle search
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
-    try {
-      const results = await searchFinancialData(undefined, undefined, searchQuery);
-      console.log("Search results:", results);
-      // You can display search results in a modal or separate section
-    } catch (error) {
-      console.error("Error searching:", error);
-    }
+  // CSV Export function
+  const exportToCSV = (data: any[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header.toLowerCase().replace(/ /g, '')] || row[header];
+          // Format dates and numbers properly
+          if (value instanceof Date) {
+            return formatDate(value);
+          }
+          if (typeof value === 'number') {
+            return value.toFixed(2);
+          }
+          return value;
+        }).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export daily financial data
+  const exportDailyData = () => {
+    const data = dailyFinancialData.map(day => ({
+      date: formatDate(day.date),
+      revenue: day.revenue,
+      cogs: day.cogs,
+      grossProfit: day.grossProfit,
+      expenses: day.expenses,
+      netProfit: day.netProfit
+    }));
+    exportToCSV(data, 'daily-financial-data.csv', ['date', 'revenue', 'cogs', 'grossProfit', 'expenses', 'netProfit']);
+  };
+
+  // Export annual financial data
+  const exportAnnualData = () => {
+    const data = annualFinancialData.map(month => ({
+      month: month.date.toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+      revenue: month.revenue,
+      cogs: month.cogs,
+      expenses: month.expenses,
+      grossProfit: month.grossProfit,
+      netProfit: month.netProfit
+    }));
+    exportToCSV(data, 'annual-financial-data.csv', ['month', 'revenue', 'cogs', 'expenses', 'grossProfit', 'netProfit']);
   };
 
   // Calculate totals for tables
@@ -238,21 +279,6 @@ export default function Finance() {
 
   return (
     <ERPLayout title="Finance" subtitle="Financial overview and cash flow management">
-      {/* Search Bar */}
-      <div className="mb-6 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search sales, expenses, or purchases..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={handleSearch}>Search</Button>
-      </div>
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
@@ -563,7 +589,13 @@ export default function Finance() {
           {/* Daily Financial Data Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Daily Financial Data</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">Daily Financial Data</CardTitle>
+                <Button onClick={exportDailyData} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -682,7 +714,13 @@ export default function Finance() {
           {/* Monthly Financial Data Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Monthly Financial Data</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">Monthly Financial Data</CardTitle>
+                <Button onClick={exportAnnualData} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

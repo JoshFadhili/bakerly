@@ -43,6 +43,7 @@ export default function NewPurchaseDialog({
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().split(' ')[0].substring(0, 5),
     itemName: "",
     supplier: "",
     items: "1",
@@ -151,6 +152,7 @@ export default function NewPurchaseDialog({
       await addPurchase({
         batchId: formData.batchId,
         date: new Date(formData.date),
+        time: formData.time,
         itemName: formData.itemName,
         supplier: formData.supplier,
         items: Number(formData.items),
@@ -172,6 +174,7 @@ export default function NewPurchaseDialog({
       // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().split(' ')[0].substring(0, 5),
         itemName: "",
         supplier: "",
         items: "1",
@@ -231,6 +234,23 @@ onClose();
                 name="date"
                 type="date"
                 value={formData.date}
+                onChange={handleInputChange}
+                className="pl-9"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Time */}
+          <div className="space-y-2">
+            <Label htmlFor="time">Time</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="time"
+                name="time"
+                type="time"
+                value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
                 required

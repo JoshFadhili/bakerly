@@ -1,4 +1,4 @@
-import { Bell, HelpCircle, Plus, ShoppingCart } from "lucide-react";
+import { Bell, HelpCircle, ShoppingCart, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
+import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 
 interface ERPHeaderProps {
   title: string;
@@ -20,12 +21,20 @@ interface ERPHeaderProps {
 export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   const navigate = useNavigate();
   const { openNewSaleDialog } = useSaleDialog();
+  const { openNewServiceOfferedDialog } = useServiceOfferedDialog();
 
   const handleNewSaleClick = () => {
     // Navigate to sales page
     navigate("/sales");
     // Open the dialog (will be handled by the Sales page)
     setTimeout(() => openNewSaleDialog(), 100);
+  };
+
+  const handleNewServiceOfferedClick = () => {
+    // Navigate to sales page
+    navigate("/sales");
+    // Open the dialog (will be handled by the Sales page)
+    setTimeout(() => openNewServiceOfferedDialog(), 100);
   };
 
   return (
@@ -44,9 +53,9 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
           <ShoppingCart className="h-4 w-4" />
           <span className="hidden sm:inline">New Sale</span>
         </Button>
-        <Button variant="success" size="sm">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Stock</span>
+        <Button variant="success" size="sm" onClick={handleNewServiceOfferedClick}>
+          <Wrench className="h-4 w-4" />
+          <span className="hidden sm:inline">New Service Offered</span>
         </Button>
 
         <div className="ml-2 flex items-center gap-2">

@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, AlertTriangle, Edit, Eye } from "lucide-react";
+import { Search, Download, Filter, AlertTriangle, Edit, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,9 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [stockMin, setStockMin] = useState<string>("");
+  const [stockMax, setStockMax] = useState<string>("");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +97,12 @@ export default function Inventory() {
 
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
 
-    return matchesSearch && matchesFilter && matchesCategory;
+    // Stock range filter
+    const matchesStock =
+      (stockMin === "" || item.stock >= Number(stockMin)) &&
+      (stockMax === "" || item.stock <= Number(stockMax));
+
+    return matchesSearch && matchesFilter && matchesCategory && matchesStock;
   });
 
   // Get unique categories
@@ -153,6 +161,13 @@ export default function Inventory() {
   const handleViewBatchDetails = (item: InventoryItem) => {
     setSelectedProductForBatches(item.name || "");
     setIsBatchDetailsOpen(true);
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setCategoryFilter("all");
+    setStockMin("");
+    setStockMax("");
   };
 
   // Export to CSV
@@ -251,23 +266,6 @@ export default function Inventory() {
               </TabsList>
             </Tabs>
 
-            <Select
-              value={categoryFilter}
-              onValueChange={setCategoryFilter}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -280,6 +278,14 @@ export default function Inventory() {
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -301,6 +307,59 @@ export default function Inventory() {
             </Button>
           </div>
         </CardHeader>
+        
+        {/* Filters Section */}
+        {showFilters && (
+          <CardContent className="border-b">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Category Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Stock Range Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stock In Hand Range</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={stockMin}
+                    onChange={(e) => setStockMin(e.target.value)}
+                    min="0"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={stockMax}
+                    onChange={(e) => setStockMax(e.target.value)}
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="mt-4">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          </CardContent>
+        )}
 
         <CardContent>
           {loading ? (

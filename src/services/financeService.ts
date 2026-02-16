@@ -1,6 +1,7 @@
 import { getSales, filterSalesByDateRange } from "./salesService";
 import { getExpenses, filterExpensesByDateRange } from "./expenseService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
+import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
 
 // Types for financial data
 export interface FinancialSummary {
@@ -92,16 +93,24 @@ export const getOverallFinancialSummary = async (): Promise<FinancialSummary> =>
     const sales = await getSales();
     const expenses = await getExpenses();
     const purchases = await getPurchases();
+    const servicesOffered = await getServicesOffered();
 
     // Calculate total revenue from completed sales
-    const revenue = sales
+    const salesRevenue = sales
       .filter(sale => sale.status === "completed")
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
+
+    // Calculate total revenue from completed services
+    const servicesRevenue = servicesOffered
+      .filter(service => service.status === "completed")
+      .reduce((sum, service) => sum + service.totalAmount, 0);
+
+    const revenue = salesRevenue + servicesRevenue;
 
     // Calculate total expenses
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Calculate COGS using FIFO
+    // Calculate COGS using FIFO (services have COGS = 0)
     let totalCOGS = 0;
     for (const sale of sales.filter(s => s.status === "completed")) {
       const cogs = await calculateCOGSForSale(sale, purchases);
@@ -134,16 +143,24 @@ export const getFinancialSummaryForDateRange = async (
     const sales = await filterSalesByDateRange(startDate, endDate);
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
+    const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
 
     // Calculate total revenue from completed sales
-    const revenue = sales
+    const salesRevenue = sales
       .filter(sale => sale.status === "completed")
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
+
+    // Calculate total revenue from completed services
+    const servicesRevenue = servicesOffered
+      .filter(service => service.status === "completed")
+      .reduce((sum, service) => sum + service.totalAmount, 0);
+
+    const revenue = salesRevenue + servicesRevenue;
 
     // Calculate total expenses
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Calculate COGS using FIFO
+    // Calculate COGS using FIFO (services have COGS = 0)
     let totalCOGS = 0;
     for (const sale of sales.filter(s => s.status === "completed")) {
       const cogs = await calculateCOGSForSale(sale, purchases);
@@ -176,6 +193,7 @@ export const getDailyFinancialData = async (
     const sales = await filterSalesByDateRange(startDate, endDate);
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
+    const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
 
     // Create a map to aggregate data by date
     const dailyDataMap = new Map<string, DailyFinancialData>();
@@ -205,6 +223,30 @@ export const getDailyFinancialData = async (
       // Calculate COGS for this sale
       const cogs = await calculateCOGSForSale(sale, purchases);
       dayData.cogs += cogs;
+    }
+
+    // Process services offered
+    for (const service of servicesOffered) {
+      if (service.status !== "completed") continue;
+
+      const dateKey = service.date.toISOString().split('T')[0];
+      const serviceDate = new Date(service.date);
+      serviceDate.setHours(0, 0, 0, 0);
+
+      if (!dailyDataMap.has(dateKey)) {
+        dailyDataMap.set(dateKey, {
+          date: serviceDate,
+          revenue: 0,
+          cogs: 0,
+          grossProfit: 0,
+          expenses: 0,
+          netProfit: 0,
+        });
+      }
+
+      const dayData = dailyDataMap.get(dateKey)!;
+      dayData.revenue += service.totalAmount;
+      // Services have COGS = 0
     }
 
     // Process expenses
@@ -253,6 +295,7 @@ export const getMonthlyFinancialData = async (
     const sales = await filterSalesByDateRange(startDate, endDate);
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
+    const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
 
     // Create a map to aggregate data by month
     const monthlyDataMap = new Map<string, MonthlyFinancialData>();
@@ -286,6 +329,34 @@ export const getMonthlyFinancialData = async (
       // Calculate COGS for this sale
       const cogs = await calculateCOGSForSale(sale, purchases);
       monthData.cogs += cogs;
+    }
+
+    // Process services offered
+    for (const service of servicesOffered) {
+      if (service.status !== "completed") continue;
+
+      const serviceDate = new Date(service.date);
+      const month = serviceDate.getMonth() + 1;
+      const year = serviceDate.getFullYear();
+      const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+
+      if (!monthlyDataMap.has(monthKey)) {
+        const firstDayOfMonth = new Date(year, month - 1, 1);
+        monthlyDataMap.set(monthKey, {
+          date: firstDayOfMonth,
+          month,
+          year,
+          revenue: 0,
+          cogs: 0,
+          expenses: 0,
+          grossProfit: 0,
+          netProfit: 0,
+        });
+      }
+
+      const monthData = monthlyDataMap.get(monthKey)!;
+      monthData.revenue += service.totalAmount;
+      // Services have COGS = 0
     }
 
     // Process expenses
@@ -339,6 +410,7 @@ export const getRevenueTrendData = async (
     startDate.setDate(startDate.getDate() - days);
 
     const sales = await filterSalesByDateRange(startDate, endDate);
+    const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     const revenueMap = new Map<string, number>();
 
     // Initialize all dates with 0 revenue
@@ -349,13 +421,23 @@ export const getRevenueTrendData = async (
       revenueMap.set(dateKey, 0);
     }
 
-    // Aggregate revenue by date
+    // Aggregate revenue by date from sales
     for (const sale of sales) {
       if (sale.status !== "completed") continue;
 
       const dateKey = sale.date.toISOString().split('T')[0];
       if (revenueMap.has(dateKey)) {
         revenueMap.set(dateKey, revenueMap.get(dateKey)! + sale.totalAmount);
+      }
+    }
+
+    // Aggregate revenue by date from services offered
+    for (const service of servicesOffered) {
+      if (service.status !== "completed") continue;
+
+      const dateKey = service.date.toISOString().split('T')[0];
+      if (revenueMap.has(dateKey)) {
+        revenueMap.set(dateKey, revenueMap.get(dateKey)! + service.totalAmount);
       }
     }
 
@@ -380,6 +462,7 @@ export const getRevenueVsExpensesData = async (
 
     const sales = await filterSalesByDateRange(startDate, endDate);
     const expenses = await filterExpensesByDateRange(startDate, endDate);
+    const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
 
     const dataMap = new Map<string, { revenue: number; expenses: number }>();
 
@@ -391,7 +474,7 @@ export const getRevenueVsExpensesData = async (
       dataMap.set(dateKey, { revenue: 0, expenses: 0 });
     }
 
-    // Aggregate revenue by date
+    // Aggregate revenue by date from sales
     for (const sale of sales) {
       if (sale.status !== "completed") continue;
 
@@ -399,6 +482,17 @@ export const getRevenueVsExpensesData = async (
       if (dataMap.has(dateKey)) {
         const data = dataMap.get(dateKey)!;
         data.revenue += sale.totalAmount;
+      }
+    }
+
+    // Aggregate revenue by date from services offered
+    for (const service of servicesOffered) {
+      if (service.status !== "completed") continue;
+
+      const dateKey = service.date.toISOString().split('T')[0];
+      if (dataMap.has(dateKey)) {
+        const data = dataMap.get(dateKey)!;
+        data.revenue += service.totalAmount;
       }
     }
 
@@ -481,20 +575,24 @@ export const searchFinancialData = async (
   sales: any[];
   expenses: any[];
   purchases: any[];
+  servicesOffered: any[];
 }> => {
   try {
     let sales: any[] = [];
     let expenses: any[] = [];
     let purchases: any[] = [];
+    let servicesOffered: any[] = [];
 
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
       expenses = await filterExpensesByDateRange(startDate, endDate);
       purchases = await filterPurchasesByDateRange(startDate, endDate);
+      servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
       expenses = await getExpenses();
       purchases = await getPurchases();
+      servicesOffered = await getServicesOffered();
     }
 
     // Filter by keyword if provided
@@ -517,9 +615,16 @@ export const searchFinancialData = async (
         purchase.supplier?.toLowerCase().includes(lowerKeyword) ||
         purchase.status?.toLowerCase().includes(lowerKeyword)
       );
+
+      servicesOffered = servicesOffered.filter(service =>
+        service.serviceName?.toLowerCase().includes(lowerKeyword) ||
+        service.payment?.toLowerCase().includes(lowerKeyword) ||
+        service.status?.toLowerCase().includes(lowerKeyword) ||
+        service.customer?.toLowerCase().includes(lowerKeyword)
+      );
     }
 
-    return { sales, expenses, purchases };
+    return { sales, expenses, purchases, servicesOffered };
   } catch (error) {
     console.error("Error searching financial data:", error);
     throw new Error("Failed to search financial data");

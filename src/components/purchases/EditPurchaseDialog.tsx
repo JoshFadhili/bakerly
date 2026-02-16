@@ -53,6 +53,7 @@ export default function EditPurchaseDialog({
   const [formData, setFormData] = useState({
     batchId: "",
     date: "",
+    time: "",
     itemName: "",
     supplier: "",
     items: "1",
@@ -142,6 +143,7 @@ export default function EditPurchaseDialog({
       setFormData({
         batchId: purchase.batchId || "",
         date: dateStr,
+        time: purchase.time || "",
         itemName: purchase.itemName,
         supplier: purchase.supplier,
         items: purchase.items.toString(),
@@ -219,6 +221,7 @@ export default function EditPurchaseDialog({
       // Update purchase
       await updatePurchase(purchase.id, {
         date: new Date(formData.date),
+        time: formData.time,
         itemName: formData.itemName,
         supplier: formData.supplier,
         items: Number(formData.items),
@@ -284,6 +287,23 @@ export default function EditPurchaseDialog({
                 name="date"
                 type="date"
                 value={formData.date}
+                onChange={handleInputChange}
+                className="pl-9"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Time */}
+          <div className="space-y-2">
+            <Label htmlFor="time">Time</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="time"
+                name="time"
+                type="time"
+                value={formData.time}
                 onChange={handleInputChange}
                 className="pl-9"
                 required

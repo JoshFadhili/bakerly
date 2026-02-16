@@ -116,7 +116,12 @@ export function SalesChart() {
                     borderRadius: "8px",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`KSh ${value.toLocaleString()}`, ""]}
+                  formatter={(value: number, name: string) => {
+                    if (name === "Revenue") {
+                      return [`KSh ${value.toLocaleString()}`, "Revenue"];
+                    }
+                    return [value.toLocaleString(), "Sales"];
+                  }}
                 />
                 <Legend />
                 <Bar

@@ -8,9 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getBatchesByProductName } from "@/services/purchaseService";
+import { getBatchesByProductName, deleteOldDepletedBatches } from "@/services/purchaseService";
 import { Purchase } from "@/types/purchase";
-import { Hash, Calendar, Package, DollarSign, AlertCircle } from "lucide-react";
+import { Hash, Calendar, Package, DollarSign, AlertCircle, Clock } from "lucide-react";
 
 interface BatchDetailsDialogProps {
   isOpen: boolean;
@@ -32,6 +32,14 @@ export default function BatchDetailsDialog({
       if (isOpen && productName) {
         setLoading(true);
         try {
+          // Clean up old depleted batches before fetching
+          try {
+            await deleteOldDepletedBatches();
+          } catch (cleanupError) {
+            console.warn("Failed to clean up old depleted batches:", cleanupError);
+            // Continue with fetching even if cleanup fails
+          }
+
           console.log("Fetching batches for product:", JSON.stringify(productName));
           const batchesList = await getBatchesByProductName(productName);
           console.log("Fetched batches:", batchesList.length, batchesList);
@@ -95,6 +103,29 @@ export default function BatchDetailsDialog({
                 const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
                 const isDepleted = itemsRemaining === 0;
                 const isLowStock = itemsRemaining > 0 && itemsRemaining < 10;
+
+                // Calculate time until deletion for depleted batches
+                const getTimeUntilDeletion = () => {
+                  if (!isDepleted || !batch.depletedAt) return null;
+                  const now = Date.now();
+                  const depletedAtTime = batch.depletedAt instanceof Date 
+                    ? batch.depletedAt.getTime() 
+                    : new Date(batch.depletedAt).getTime();
+                  const hoursInMs = 168 * 60 * 60 * 1000; // 168 hours in milliseconds
+                  const timeUntilDeletion = depletedAtTime + hoursInMs - now;
+                  
+                  if (timeUntilDeletion <= 0) return null;
+                  
+                  const days = Math.floor(timeUntilDeletion / (24 * 60 * 60 * 1000));
+                  const hours = Math.floor((timeUntilDeletion % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                  
+                  if (days > 0) {
+                    return `${days} day${days > 1 ? 's' : ''} ${hours} hour${hours > 1 ? 's' : ''}`;
+                  }
+                  return `${hours} hour${hours > 1 ? 's' : ''}`;
+                };
+
+                const timeUntilDeletion = getTimeUntilDeletion();
 
                 return (
                   <div
@@ -199,9 +230,17 @@ export default function BatchDetailsDialog({
                     </div>
 
                     {isDepleted && (
-                      <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-                        <AlertCircle className="h-4 w-4" />
-                        <span>This batch has been fully sold</span>
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>This batch has been fully sold</span>
+                        </div>
+                        {timeUntilDeletion && (
+                          <div className="flex items-center gap-2 text-sm text-orange-600">
+                            <Clock className="h-4 w-4" />
+                            <span>Will be deleted in {timeUntilDeletion}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -218,6 +257,20 @@ export default function BatchDetailsDialog({
                   <p>
                     When sales are made, items are automatically deducted from the oldest batch first.
                     This ensures that inventory from earlier purchases is sold before newer stock.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Auto-Deletion Info */}
+            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Clock className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-orange-800">
+                  <p className="font-semibold mb-1">Automatic Batch Cleanup</p>
+                  <p>
+                    Depleted batches (with 0 items remaining) are automatically deleted from this view after 168 hours (1 week).
+                    This helps keep your batch records clean and focused on active inventory.
                   </p>
                 </div>
               </div>

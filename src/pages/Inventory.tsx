@@ -40,6 +40,7 @@ import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
 import { Purchase } from "@/types/purchase";
 import { getProducts } from "@/services/productService";
+import { deleteOldDepletedBatches } from "@/services/purchaseService";
 import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
 
 export default function Inventory() {
@@ -69,6 +70,17 @@ export default function Inventory() {
   // Fetch inventory and products
   const fetchData = async () => {
     try {
+      // Clean up old depleted batches (older than 168 hours)
+      try {
+        const cleanupResult = await deleteOldDepletedBatches();
+        if (cleanupResult.deleted > 0) {
+          console.log(`Cleaned up ${cleanupResult.deleted} old depleted batches`);
+        }
+      } catch (cleanupError) {
+        console.warn("Failed to clean up old depleted batches:", cleanupError);
+        // Continue with loading data even if cleanup fails
+      }
+
       const [inventoryList, productsList] = await Promise.all([
         getInventory(),
         getProducts(),

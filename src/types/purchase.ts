@@ -12,4 +12,5 @@ export interface Purchase {
   status: "received" | "pending" | "cancelled";
   createdAt: Date;
   updatedAt?: Date;
+  depletedAt?: Date; // Timestamp when batch became depleted (itemsRemaining = 0)
 }

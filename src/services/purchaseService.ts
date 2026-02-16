@@ -59,6 +59,9 @@ export const getPurchases = async (): Promise<Purchase[]> => {
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -121,6 +124,9 @@ export const searchPurchasesByItemName = async (itemName: string): Promise<Purch
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -154,6 +160,9 @@ export const searchPurchasesBySupplier = async (supplier: string): Promise<Purch
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -186,6 +195,9 @@ export const filterPurchasesByStatus = async (status: string): Promise<Purchase[
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -225,6 +237,9 @@ export const filterPurchasesByDateRange = async (
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -261,6 +276,9 @@ export const filterPurchasesByCostRange = async (
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
   } catch (error) {
@@ -295,6 +313,9 @@ export const getPurchasesByProductName = async (itemName: string): Promise<Purch
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
 
@@ -340,6 +361,9 @@ export const getBatchesByProductName = async (itemName: string): Promise<Purchas
         updatedAt: data.updatedAt instanceof Timestamp
           ? data.updatedAt.toDate()
           : data.updatedAt,
+        depletedAt: data.depletedAt instanceof Timestamp
+          ? data.depletedAt.toDate()
+          : data.depletedAt,
       };
     });
 
@@ -348,8 +372,33 @@ export const getBatchesByProductName = async (itemName: string): Promise<Purchas
       purchase.itemName?.trim().toLowerCase() === itemName.trim().toLowerCase()
     );
 
+    // Filter out depleted batches older than 168 hours (1 week)
+    const now = Date.now();
+    const hoursInMs = 168 * 60 * 60 * 1000; // 168 hours in milliseconds
+    const activeBatches = filtered.filter(purchase => {
+      const itemsRemaining = purchase.itemsRemaining !== undefined ? purchase.itemsRemaining : purchase.items;
+      
+      // If batch is not depleted, include it
+      if (itemsRemaining > 0) {
+        return true;
+      }
+      
+      // If batch is depleted, check if it's older than 168 hours
+      if (purchase.depletedAt) {
+        const depletedAtTime = purchase.depletedAt instanceof Date 
+          ? purchase.depletedAt.getTime() 
+          : new Date(purchase.depletedAt).getTime();
+        
+        // Only include if it's been less than 168 hours since depletion
+        return now - depletedAtTime < hoursInMs;
+      }
+      
+      // If depleted but no depletedAt timestamp, exclude it (assume old)
+      return false;
+    });
+
     // Sort by date descending (newest first)
-    return filtered.sort((a, b) => {
+    return activeBatches.sort((a, b) => {
       const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
       const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
       return dateB - dateA;
@@ -375,10 +424,19 @@ export const updateBatchQuantity = async (purchaseId: string, quantitySold: numb
     const currentData = purchaseDoc.data() as Omit<Purchase, "id">;
     const newItemsRemaining = Math.max(0, (currentData.itemsRemaining !== undefined ? currentData.itemsRemaining : currentData.items) - quantitySold);
 
-    await updateDoc(purchaseRef, {
+    // Check if batch is becoming depleted and set depletedAt timestamp
+    const updateData: any = {
       itemsRemaining: newItemsRemaining,
       updatedAt: Timestamp.now(),
-    });
+    };
+
+    // If batch becomes depleted (itemsRemaining goes from >0 to 0), set depletedAt
+    const currentItemsRemaining = currentData.itemsRemaining !== undefined ? currentData.itemsRemaining : currentData.items;
+    if (currentItemsRemaining > 0 && newItemsRemaining === 0) {
+      updateData.depletedAt = Timestamp.now();
+    }
+
+    await updateDoc(purchaseRef, updateData);
   } catch (error) {
     console.error("Error updating batch quantity:", error);
     throw new Error("Failed to update batch quantity. Please try again.");
@@ -453,5 +511,46 @@ export const restoreBatchQuantitiesForProduct = async (itemName: string, quantit
   } catch (error) {
     console.error("Error restoring batch quantities for product:", error);
     throw new Error("Failed to restore batch quantities. Please try again.");
+  }
+};
+
+// 🗑️ DELETE DEPLETED BATCHES OLDER THAN 168 HOURS (1 week)
+export const deleteOldDepletedBatches = async (): Promise<{ deleted: number; skipped: number }> => {
+  try {
+    const q = query(purchasesRef, where("status", "==", "received"));
+    const snapshot = await getDocs(q);
+
+    let deleted = 0;
+    let skipped = 0;
+    const now = Date.now();
+    const hoursInMs = 168 * 60 * 60 * 1000; // 168 hours in milliseconds
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const itemsRemaining = data.itemsRemaining !== undefined ? data.itemsRemaining : data.items;
+      const depletedAt = data.depletedAt;
+
+      // Only process depleted batches (itemsRemaining === 0)
+      if (itemsRemaining === 0 && depletedAt) {
+        // Convert depletedAt to timestamp
+        const depletedAtTime = depletedAt instanceof Timestamp 
+          ? depletedAt.toDate().getTime() 
+          : new Date(depletedAt).getTime();
+
+        // Check if batch is older than 168 hours
+        if (now - depletedAtTime > hoursInMs) {
+          await deleteDoc(doc(db, "purchases", docSnap.id));
+          deleted++;
+          console.log(`Deleted depleted batch ${data.batchId} from ${data.itemName}`);
+        } else {
+          skipped++;
+        }
+      }
+    }
+
+    return { deleted, skipped };
+  } catch (error) {
+    console.error("Error deleting old depleted batches:", error);
+    throw new Error("Failed to delete old depleted batches. Please try again.");
   }
 };

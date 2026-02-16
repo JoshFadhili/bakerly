@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, Truck, Receipt, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { subscribeToRecentActivities, Activity } from "@/services/dashboardService";
+import { getRecentActivities, Activity } from "@/services/dashboardService";
 
 type ActivityType = "sale" | "purchase" | "expense" | "service";
 
@@ -22,28 +22,29 @@ export function RecentActivities() {
   useEffect(() => {
     isMounted.current = true;
 
-    // Set a timeout to ensure loading state is cleared even if data doesn't load
-    const timeoutId = setTimeout(() => {
-      if (isMounted.current && loading) {
-        setLoading(false);
+    // Fetch fresh data every time the component mounts
+    const fetchActivities = async () => {
+      try {
+        const data = await getRecentActivities(5);
+        if (isMounted.current) {
+          setActivities(data);
+          setLoading(false);
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          console.error("Error fetching recent activities:", err);
+          setError("Failed to load activities");
+          setLoading(false);
+        }
       }
-    }, 5000); // 5 second timeout
+    };
 
-    // Subscribe to real-time updates for recent activities
-    const unsubscribe = subscribeToRecentActivities(5, (data) => {
-      if (isMounted.current) {
-        setActivities(data);
-        setLoading(false);
-        setError(null);
-        clearTimeout(timeoutId);
-      }
-    });
+    fetchActivities();
 
-    // Cleanup subscription on unmount
+    // Cleanup on unmount
     return () => {
       isMounted.current = false;
-      unsubscribe();
-      clearTimeout(timeoutId);
     };
   }, []); // Empty dependency array - only run on mount
 
@@ -80,10 +81,11 @@ export function RecentActivities() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 text-sm">
-                  <span className="font-medium">{config.label}:</span>{" "}
-                  <span className="text-muted-foreground">{activity.description}</span>
+                  <div className="font-medium">{config.label}:</div>
+                  <div className="text-muted-foreground">{activity.description}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{activity.dateTime}</div>
                   {activity.amount && (
-                    <span className="font-semibold"> – {activity.amount}</span>
+                    <div className="font-semibold"> – {activity.amount}</div>
                   )}
                 </div>
               </div>

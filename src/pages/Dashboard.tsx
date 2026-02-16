@@ -10,9 +10,11 @@ import { DashboardKPI } from "@/services/dashboardService";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { usePurchaseDialog } from "@/contexts/PurchaseDialogContext";
 import { useExpenseDialog } from "@/contexts/ExpenseDialogContext";
+import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import NewSaleDialog from "@/components/sales/NewSaleDialog";
 import NewPurchaseDialog from "@/components/purchases/NewPurchaseDialog";
 import AddExpenseDialog from "@/components/expenses/AddExpenseDialog";
+import NewServiceOfferedDialog from "@/components/sales/NewServiceOfferedDialog";
 
 export default function Dashboard() {
   const [kpiData, setKpiData] = useState<DashboardKPI | null>(null);
@@ -22,11 +24,13 @@ export default function Dashboard() {
   const [isNewSaleDialogOpen, setIsNewSaleDialogOpen] = useState(false);
   const [isNewPurchaseDialogOpen, setIsNewPurchaseDialogOpen] = useState(false);
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
+  const [isNewServiceOfferedDialogOpen, setIsNewServiceOfferedDialogOpen] = useState(false);
 
   // Context hooks
   const { isNewSaleDialogOpen: globalSaleDialogOpen, closeNewSaleDialog } = useSaleDialog();
   const { isNewPurchaseDialogOpen: globalPurchaseDialogOpen, closeNewPurchaseDialog } = usePurchaseDialog();
   const { isAddExpenseDialogOpen: globalExpenseDialogOpen, closeAddExpenseDialog } = useExpenseDialog();
+  const { isNewServiceOfferedDialogOpen: globalServiceOfferedDialogOpen, closeNewServiceOfferedDialog } = useServiceOfferedDialog();
 
   // Sync with global dialog states
   useEffect(() => {
@@ -49,6 +53,13 @@ export default function Dashboard() {
       closeAddExpenseDialog();
     }
   }, [globalExpenseDialogOpen, closeAddExpenseDialog]);
+
+  useEffect(() => {
+    if (globalServiceOfferedDialogOpen) {
+      setIsNewServiceOfferedDialogOpen(true);
+      closeNewServiceOfferedDialog();
+    }
+  }, [globalServiceOfferedDialogOpen, closeNewServiceOfferedDialog]);
 
   useEffect(() => {
     const fetchKPIData = async () => {
@@ -110,6 +121,7 @@ export default function Dashboard() {
           onNewSaleClick={() => setIsNewSaleDialogOpen(true)}
           onAddPurchaseClick={() => setIsNewPurchaseDialogOpen(true)}
           onRecordExpenseClick={() => setIsAddExpenseDialogOpen(true)}
+          onNewServiceOfferedClick={() => setIsNewServiceOfferedDialogOpen(true)}
         />
         <RecentActivities />
       </div>
@@ -129,6 +141,11 @@ export default function Dashboard() {
         isOpen={isAddExpenseDialogOpen}
         onClose={() => setIsAddExpenseDialogOpen(false)}
         onExpenseAdded={() => {}}
+      />
+      <NewServiceOfferedDialog
+        isOpen={isNewServiceOfferedDialogOpen}
+        onClose={() => setIsNewServiceOfferedDialogOpen(false)}
+        onServiceOfferedAdded={() => {}}
       />
     </ERPLayout>
   );

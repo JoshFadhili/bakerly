@@ -1,22 +1,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Truck, Receipt } from "lucide-react";
+import { ShoppingCart, Truck, Receipt, Plus, Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { usePurchaseDialog } from "@/contexts/PurchaseDialogContext";
 import { useExpenseDialog } from "@/contexts/ExpenseDialogContext";
+import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 
 interface QuickActionsProps {
   onNewSaleClick?: () => void;
   onAddPurchaseClick?: () => void;
   onRecordExpenseClick?: () => void;
+  onNewServiceOfferedClick?: () => void;
 }
 
-export function QuickActions({ onNewSaleClick, onAddPurchaseClick, onRecordExpenseClick }: QuickActionsProps) {
+export function QuickActions({ onNewSaleClick, onAddPurchaseClick, onRecordExpenseClick, onNewServiceOfferedClick }: QuickActionsProps) {
   const navigate = useNavigate();
   const { openNewSaleDialog } = useSaleDialog();
   const { openNewPurchaseDialog } = usePurchaseDialog();
   const { openAddExpenseDialog } = useExpenseDialog();
+  const { openNewServiceOfferedDialog } = useServiceOfferedDialog();
 
   const handleNewSaleClick = () => {
     onNewSaleClick?.();
@@ -36,23 +39,33 @@ export function QuickActions({ onNewSaleClick, onAddPurchaseClick, onRecordExpen
     navigate("/expenses");
   };
 
+  const handleNewServiceOfferedClick = () => {
+    onNewServiceOfferedClick?.();
+    openNewServiceOfferedDialog();
+    navigate("/sales");
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-3">
-        <Button variant="sale" className="flex-1" onClick={handleNewSaleClick}>
-          <ShoppingCart className="h-4 w-4" />
-          New Sale
+      <CardContent className="grid grid-cols-2 gap-4">
+        <Button variant="success" className="h-24 text-base" onClick={handleAddPurchaseClick}>
+          <Truck className="h-8 w-8 mb-1" />
+          <span>Add Purchase</span>
         </Button>
-        <Button variant="success" className="flex-1" onClick={handleAddPurchaseClick}>
-          <Truck className="h-4 w-4" />
-          Add Purchase
+        <Button variant="expense" className="h-24 text-base" onClick={handleRecordExpenseClick}>
+          <Receipt className="h-8 w-8 mb-1" />
+          <span>Record Expense</span>
         </Button>
-        <Button variant="expense" className="flex-1" onClick={handleRecordExpenseClick}>
-          <Receipt className="h-4 w-4" />
-          Record Expense
+        <Button variant="sale" className="h-24 text-base" onClick={handleNewSaleClick}>
+          <ShoppingCart className="h-8 w-8 mb-1" />
+          <span>New Sale</span>
+        </Button>
+        <Button variant="default" className="h-24 text-base" onClick={handleNewServiceOfferedClick}>
+          <Wrench className="h-8 w-8 mb-1" />
+          <span>New Service Offered</span>
         </Button>
       </CardContent>
     </Card>

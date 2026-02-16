@@ -28,9 +28,10 @@ export interface TopProduct {
 
 export interface Activity {
   type: "sale" | "purchase" | "expense" | "service";
-  description: string;
-  amount?: string;
-  date: Date;
+  dateTime: string; // Formatted date/time string
+  description: string; // What was sold/purchased/paid for
+  amount?: string; // Total revenue or cost
+  createdAt: Date; // When the record was added to database
 }
 
 // Helper function to get today's date range
@@ -339,13 +340,24 @@ export const getRecentActivities = async (limit: number = 5): Promise<Activity[]
 
     const activities: Activity[] = [];
 
+    // Helper function to format date/time
+    const formatDateTime = (date: Date, time: string): string => {
+      const dateStr = date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      return `${dateStr} at ${time}`;
+    };
+
     // Add sales as activities
     for (const sale of sales) {
       activities.push({
         type: "sale",
+        dateTime: formatDateTime(sale.date, sale.time),
         description: `${sale.items} ${sale.itemName} sold`,
         amount: `KSh ${sale.totalAmount.toLocaleString()}`,
-        date: sale.date,
+        createdAt: sale.createdAt,
       });
     }
 
@@ -353,8 +365,10 @@ export const getRecentActivities = async (limit: number = 5): Promise<Activity[]
     for (const purchase of purchases) {
       activities.push({
         type: "purchase",
-        description: `${purchase.items} ${purchase.itemName} added`,
-        date: purchase.date,
+        dateTime: formatDateTime(purchase.date, purchase.time),
+        description: `${purchase.items} ${purchase.itemName} purchased`,
+        amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+        createdAt: purchase.createdAt,
       });
     }
 
@@ -362,9 +376,10 @@ export const getRecentActivities = async (limit: number = 5): Promise<Activity[]
     for (const expense of expenses) {
       activities.push({
         type: "expense",
+        dateTime: formatDateTime(expense.date, expense.time),
         description: expense.description,
         amount: `KSh ${expense.amount.toLocaleString()}`,
-        date: expense.date,
+        createdAt: expense.createdAt,
       });
     }
 
@@ -372,15 +387,16 @@ export const getRecentActivities = async (limit: number = 5): Promise<Activity[]
     for (const service of services) {
       activities.push({
         type: "service",
+        dateTime: formatDateTime(service.date, service.time),
         description: `${service.serviceName}${service.customer ? ` for ${service.customer}` : ''}`,
         amount: `KSh ${service.totalAmount.toLocaleString()}`,
-        date: service.date,
+        createdAt: service.createdAt,
       });
     }
 
-    // Sort by date descending and take the latest
+    // Sort by createdAt descending (newest additions first) and take the latest
     return activities
-      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
   } catch (error) {
     console.error("Error fetching recent activities:", error);
@@ -396,10 +412,10 @@ export const subscribeToRecentActivities = (
   // Create queries for each collection with limits for efficiency
   // Fetch more than needed (limitCount * 2) to ensure we get enough after filtering
   const queryLimit = Math.max(limitCount * 2, 20);
-  const salesQuery = query(collection(db, "sales"), orderBy("date", "desc"), limit(queryLimit));
-  const purchasesQuery = query(collection(db, "purchases"), orderBy("date", "desc"), limit(queryLimit));
-  const expensesQuery = query(collection(db, "expenses"), orderBy("date", "desc"), limit(queryLimit));
-  const servicesQuery = query(collection(db, "servicesOffered"), orderBy("date", "desc"), limit(queryLimit));
+  const salesQuery = query(collection(db, "sales"), orderBy("createdAt", "desc"), limit(queryLimit));
+  const purchasesQuery = query(collection(db, "purchases"), orderBy("createdAt", "desc"), limit(queryLimit));
+  const expensesQuery = query(collection(db, "expenses"), orderBy("createdAt", "desc"), limit(queryLimit));
+  const servicesQuery = query(collection(db, "servicesOffered"), orderBy("createdAt", "desc"), limit(queryLimit));
 
   // Track all data from all collections
   let salesData: any[] = [];
@@ -420,52 +436,68 @@ export const subscribeToRecentActivities = (
   const combineActivities = () => {
     const activities: Activity[] = [];
 
+    // Helper function to format date/time
+    const formatDateTime = (date: Date | Timestamp, time: string): string => {
+      const dateObj = date instanceof Timestamp ? date.toDate() : date;
+      const dateStr = dateObj.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      return `${dateStr} at ${time}`;
+    };
+
     // Add sales as activities
     for (const sale of salesData) {
-      const date = sale.date instanceof Timestamp ? sale.date.toDate() : sale.date;
+      const createdAt = sale.createdAt instanceof Timestamp ? sale.createdAt.toDate() : sale.createdAt;
       activities.push({
         type: "sale",
+        dateTime: formatDateTime(sale.date, sale.time),
         description: `${sale.items} ${sale.itemName} sold`,
         amount: `KSh ${sale.totalAmount.toLocaleString()}`,
-        date: date,
+        createdAt: createdAt,
       });
     }
 
     // Add purchases as activities
     for (const purchase of purchasesData) {
-      const date = purchase.date instanceof Timestamp ? purchase.date.toDate() : purchase.date;
+      const createdAt = purchase.createdAt instanceof Timestamp ? purchase.createdAt.toDate() : purchase.createdAt;
       activities.push({
         type: "purchase",
-        description: `${purchase.items} ${purchase.itemName} added`,
-        date: date,
+        dateTime: formatDateTime(purchase.date, purchase.time),
+        description: `${purchase.items} ${purchase.itemName} purchased`,
+        amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+        createdAt: createdAt,
       });
     }
 
     // Add expenses as activities
     for (const expense of expensesData) {
-      const date = expense.date instanceof Timestamp ? expense.date.toDate() : expense.date;
+      const createdAt = expense.createdAt instanceof Timestamp ? expense.createdAt.toDate() : expense.createdAt;
       activities.push({
         type: "expense",
+        dateTime: formatDateTime(expense.date, expense.time),
         description: expense.description,
         amount: `KSh ${expense.amount.toLocaleString()}`,
-        date: date,
+        createdAt: createdAt,
       });
     }
 
     // Add services as activities
     for (const service of servicesData) {
-      const date = service.date instanceof Timestamp ? service.date.toDate() : service.date;
+      const createdAt = service.createdAt instanceof Timestamp ? service.createdAt.toDate() : service.createdAt;
       activities.push({
         type: "service",
+        dateTime: formatDateTime(service.date, service.time),
         description: `${service.serviceName}${service.customer ? ` for ${service.customer}` : ''}`,
         amount: `KSh ${service.totalAmount.toLocaleString()}`,
-        date: date,
+        createdAt: createdAt,
       });
     }
 
-    // Sort by date descending and take the latest
+    // Sort by createdAt descending (newest additions first) and take the latest
     const sortedActivities = activities
-      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limitCount);
 
     callback(sortedActivities);

@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Download, Eye, Edit, X, Plus, Clock } from "lucide-react";
+import { Search, Filter, Download, Eye, Edit, X, Plus, Clock, Wrench, ShoppingCart } from "lucide-react";
 import { getSales } from "@/services/salesService";
 import { Sale } from "@/types/sale";
 import { getServicesOffered } from "@/services/serviceOfferedService";
@@ -554,6 +554,7 @@ export default function Sales() {
                 <div className="flex flex-col items-center justify-center py-12">
                   <p className="text-muted-foreground mb-4">No sales found</p>
                   <Button onClick={() => setIsNewSaleDialogOpen(true)}>
+                    <ShoppingCart className="h-4 w-4 mr-2" />
                     Create your first sale
                   </Button>
                 </div>
@@ -638,7 +639,7 @@ export default function Sales() {
               )}
               <div className="mt-4 flex justify-end">
                 <Button onClick={() => setIsNewSaleDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <ShoppingCart className="h-4 w-4 mr-2" />
                   New Sale
                 </Button>
               </div>
@@ -652,6 +653,7 @@ export default function Sales() {
                 <div className="flex flex-col items-center justify-center py-12">
                   <p className="text-muted-foreground mb-4">No services offered found</p>
                   <Button onClick={() => setIsNewServiceOfferedDialogOpen(true)}>
+                    <Wrench className="h-4 w-4 mr-2" />
                     Record your first service offered
                   </Button>
                 </div>
@@ -734,7 +736,7 @@ export default function Sales() {
               )}
               <div className="mt-4 flex justify-end">
                 <Button onClick={() => setIsNewServiceOfferedDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Wrench className="h-4 w-4 mr-2" />
                   New Service Offered
                 </Button>
               </div>

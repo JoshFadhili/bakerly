@@ -12,6 +12,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface ERPHeaderProps {
   title: string;
@@ -22,6 +24,7 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   const navigate = useNavigate();
   const { openNewSaleDialog } = useSaleDialog();
   const { openNewServiceOfferedDialog } = useServiceOfferedDialog();
+  const { user, signOut } = useAuth();
 
   const handleNewSaleClick = () => {
     // Navigate to sales page
@@ -35,6 +38,24 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
     navigate("/sales");
     // Open the dialog (will be handled by the Sales page)
     setTimeout(() => openNewServiceOfferedDialog(), 100);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Logout failed';
+      toast.error(errorMessage);
+    }
+  };
+
+  const getUserInitials = () => {
+    if (!user?.email) return 'U';
+    const email = user.email;
+    const name = email.split('@')[0];
+    return name.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -75,18 +96,29 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="" alt="User" />
                   <AvatarFallback className="bg-erp-blue text-primary-foreground text-sm">
-                    ND
+                    {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">My Account</p>
+                  {user?.email && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Log out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

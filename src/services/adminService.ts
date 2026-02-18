@@ -119,3 +119,39 @@ export const deleteDepletedBatches = async (): Promise<number> => {
     throw new Error("Failed to hide depleted batches");
   }
 };
+
+// 🗑️ Delete all data from the system
+// This function deletes all records from all collections
+export const deleteAll = async (): Promise<{ [key: string]: number }> => {
+  const results: { [key: string]: number } = {};
+  
+  try {
+    // Delete all collections in parallel
+    const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, purchasesCount, batchesCount, stockAdjustmentsCount, expensesCount] = await Promise.all([
+      deleteAllSales().catch(e => { console.error("Error deleting sales:", e); return 0; }),
+      deleteAllServicesOffered().catch(e => { console.error("Error deleting services offered:", e); return 0; }),
+      deleteAllProducts().catch(e => { console.error("Error deleting products:", e); return 0; }),
+      deleteAllServices().catch(e => { console.error("Error deleting services:", e); return 0; }),
+      deleteAllInventory().catch(e => { console.error("Error deleting inventory:", e); return 0; }),
+      deleteAllPurchases().catch(e => { console.error("Error deleting purchases:", e); return 0; }),
+      deleteAllBatches().catch(e => { console.error("Error deleting batches:", e); return 0; }),
+      deleteAllStockAdjustments().catch(e => { console.error("Error deleting stock adjustments:", e); return 0; }),
+      deleteAllExpenses().catch(e => { console.error("Error deleting expenses:", e); return 0; }),
+    ]);
+    
+    results.sales = salesCount;
+    results.servicesOffered = servicesOfferedCount;
+    results.products = productsCount;
+    results.services = servicesCount;
+    results.inventory = inventoryCount;
+    results.purchases = purchasesCount;
+    results.batches = batchesCount;
+    results.stockAdjustments = stockAdjustmentsCount;
+    results.expenses = expensesCount;
+    
+    return results;
+  } catch (error) {
+    console.error("Error deleting all data:", error);
+    throw new Error("Failed to delete all data");
+  }
+};

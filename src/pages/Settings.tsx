@@ -37,6 +37,7 @@ import {
   deleteAllStockAdjustments,
   deleteAllExpenses,
   deleteDepletedBatches,
+  deleteAll,
 } from "@/services/adminService";
 
 export default function Settings() {
@@ -270,6 +271,11 @@ export default function Settings() {
       let successMessage = "";
 
       switch (selectedAction) {
+        case "all":
+          const results = await deleteAll();
+          const totalDeleted = Object.values(results).reduce((sum, count) => sum + count, 0);
+          successMessage = `Deleted all data: ${totalDeleted} total records (${results.sales} sales, ${results.products} products, ${results.services} services, ${results.inventory} inventory, ${results.purchases} purchases, ${results.batches} batches, ${results.stockAdjustments} stock adjustments, ${results.expenses} expenses, ${results.servicesOffered} services offered)`;
+          break;
         case "depletedBatches":
           deletedCount = await deleteDepletedBatches();
           successMessage = `Hidden ${deletedCount} depleted batch(es) from batch details view`;
@@ -823,6 +829,21 @@ export default function Settings() {
                 </p>
               </div>
 
+              {/* Delete Everything Button - spans both columns with extra highlighting */}
+              <div className="sm:col-span-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("all")}
+                  className="w-full justify-center gap-2 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  Delete Everything
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  This will delete ALL data in the system. Use with extreme caution.
+                </p>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Button
                   variant="destructive"
@@ -921,10 +942,13 @@ export default function Settings() {
                   <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
-                      Confirm Deletion
+                      {selectedAction === "all" ? "Confirm Delete All Data" : "Confirm Deletion"}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. Please enter your password to confirm.
+                      {selectedAction === "all" 
+                        ? "This will permanently delete ALL data from the system including sales, products, services, inventory, purchases, batches, stock adjustments, and expenses. This action cannot be undone. Please enter your password to confirm."
+                        : "This action cannot be undone. Please enter your password to confirm."
+                      }
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="space-y-4 py-4">

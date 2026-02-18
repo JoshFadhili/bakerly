@@ -24,6 +24,7 @@ import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Search, Calendar, AlertCircle, Info, Package, TrendingDown, ArrowUpDown, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface EditSaleDialogProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export default function EditSaleDialog({
   sale,
 }: EditSaleDialogProps) {
   const { toast } = useToast();
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -68,9 +71,9 @@ export default function EditSaleDialog({
     return inventoryItem?.stock ?? 0;
   };
 
-  // Check if stock is low (<= 10)
+  // Check if stock is low
   const isLowStock = (productName: string): boolean => {
-    return getStockForProduct(productName) <= 10;
+    return getStockForProduct(productName) < lowStockThreshold;
   };
 
   // Check if there's enough stock for the requested quantity

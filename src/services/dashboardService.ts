@@ -3,8 +3,9 @@ import { getExpenses, filterExpensesByDateRange } from "./expenseService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
 import { getLowStockItems } from "./inventoryService";
 import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
+import { getUserSettings } from "./settingsService";
 import { collection, onSnapshot, query, orderBy, limit, Timestamp, Unsubscribe } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 
 // Types for dashboard data
 export interface DashboardKPI {
@@ -55,6 +56,18 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
   try {
     const { startOfDay, endOfDay } = getTodayRange();
     const { startOfMonth, endOfMonth } = getCurrentMonthRange();
+
+    // Get user settings for low stock threshold
+    let lowStockThreshold = 5; // default value
+    if (auth.currentUser) {
+      try {
+        const userSettings = await getUserSettings(auth.currentUser.uid);
+        lowStockThreshold = userSettings.notifications?.lowStockThreshold ?? 5;
+      } catch (error) {
+        console.error("Error fetching user settings for low stock threshold:", error);
+        // Use default value if settings fetch fails
+      }
+    }
 
     // Get today's sales
     const todaySales = await filterSalesByDateRange(startOfDay, endOfDay);
@@ -124,8 +137,8 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
     const monthlyGrossProfit = monthlyRevenue - totalCOGS;
     const monthlyNetProfit = monthlyGrossProfit - totalMonthlyExpenses;
 
-    // Get low stock items
-    const lowStockItems = await getLowStockItems();
+    // Get low stock items with user's threshold
+    const lowStockItems = await getLowStockItems(lowStockThreshold);
 
     return {
       todaySales: todayTotalSales,

@@ -22,6 +22,7 @@ import { addPurchase, generateBatchId } from "@/services/purchaseService";
 import { getInventory, syncInventoryFromPurchase } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Search, Calendar, AlertCircle, Info, Hash, Package, TrendingDown } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface NewPurchaseDialogProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export default function NewPurchaseDialog({
   onClose,
   onPurchaseAdded,
 }: NewPurchaseDialogProps) {
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -62,9 +65,9 @@ export default function NewPurchaseDialog({
     return inventoryItem?.stock ?? 0;
   };
 
-  // Check if stock is low (<= 10)
+  // Check if stock is low
   const isLowStock = (productName: string): boolean => {
-    return getStockForProduct(productName) <= 10;
+    return getStockForProduct(productName) < lowStockThreshold;
   };
 
   // Close dropdown when clicking outside

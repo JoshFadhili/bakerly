@@ -61,8 +61,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useSettings } from "@/contexts/SettingsContext";
 
 export default function Products() {
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -108,8 +111,9 @@ export default function Products() {
     if (!inventoryItem) {
       return { status: "out_of_stock", stock: 0 };
     }
+    const isLowStock = inventoryItem.stock < lowStockThreshold;
     return {
-      status: inventoryItem.status || "active",
+      status: isLowStock ? "low_stock" : "active",
       stock: inventoryItem.stock
     };
   };

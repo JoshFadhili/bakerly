@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,243 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Building, User, Bell, Shield, Palette, Globe } from "lucide-react";
+import { Building, User, Bell, Shield, MapPin, Clock, Loader2, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSettings } from "@/contexts/SettingsContext";
+import { toast } from "sonner";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { commonTimezones } from "@/services/settingsService";
 
 export default function Settings() {
+  const { user } = useAuth();
+  const { settings, loading, updateProfile, updateBusiness, updateNotifications, detectUserLocation } = useSettings();
+  const [saving, setSaving] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Profile state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // Business state
+  const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [address, setAddress] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [timezone, setTimezone] = useState("");
+  const [timezoneSearch, setTimezoneSearch] = useState("");
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
+
+  // Notifications state
+  const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [lowStockThreshold, setLowStockThreshold] = useState(5);
+  const [dailySalesSummary, setDailySalesSummary] = useState(true);
+  const [newOrderNotifications, setNewOrderNotifications] = useState(false);
+  const [expenseReminders, setExpenseReminders] = useState(true);
+
+  // Security state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Ref for timezone dropdown
+  const timezoneDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Initialize state from settings
+  useEffect(() => {
+    if (settings) {
+      setFirstName(settings.profile?.firstName || "");
+      setLastName(settings.profile?.lastName || "");
+      setEmail(settings.profile?.email || user?.email || "");
+      setPhone(settings.profile?.phone || "");
+
+      setBusinessName(settings.business?.name || "");
+      setBusinessType(settings.business?.type || "");
+      setAddress(settings.business?.address || "");
+      setCurrency(settings.business?.currency || "KSh (Kenyan Shilling)");
+      setTimezone(settings.business?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+      setLowStockAlerts(settings.notifications?.lowStockAlerts ?? true);
+      setLowStockThreshold(settings.notifications?.lowStockThreshold ?? 5);
+      setDailySalesSummary(settings.notifications?.dailySalesSummary ?? true);
+      setNewOrderNotifications(settings.notifications?.newOrderNotifications ?? false);
+      setExpenseReminders(settings.notifications?.expenseReminders ?? true);
+
+      setTwoFactorEnabled(settings.security?.twoFactorEnabled ?? false);
+    } else if (user) {
+      setEmail(user.email || "");
+    }
+  }, [settings, user]);
+
+  // Close timezone dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (timezoneDropdownRef.current && !timezoneDropdownRef.current.contains(event.target as Node)) {
+        setShowTimezoneDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Handle profile save
+  const handleProfileSave = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("First name and last name are required");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+      });
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle business info save
+  const handleBusinessSave = async () => {
+    if (!businessName.trim()) {
+      toast.error("Business name is required");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateBusiness({
+        name: businessName.trim(),
+        type: businessType.trim(),
+        address: address.trim(),
+        currency: currency.trim(),
+        timezone: timezone.trim(),
+      });
+      toast.success("Business information updated successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update business information");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle location detection
+  const handleDetectLocation = async () => {
+    try {
+      setDetectingLocation(true);
+      await detectUserLocation();
+      toast.success("Location detected successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to detect location");
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
+
+  // Handle notifications save
+  const handleNotificationsSave = async () => {
+    try {
+      setSaving(true);
+      await updateNotifications({
+        lowStockAlerts,
+        lowStockThreshold,
+        dailySalesSummary,
+        newOrderNotifications,
+        expenseReminders,
+      });
+      toast.success("Notification preferences updated successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update notification preferences");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle password change
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("All password fields are required");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Reauthenticate user
+      if (!user?.email) {
+        throw new Error("User email not found");
+      }
+
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // Update password
+      await updatePassword(user, newPassword);
+
+      // Clear form
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      toast.success("Password updated successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update password");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Filter timezones based on search
+  const filteredTimezones = commonTimezones.filter((tz) =>
+    tz.toLowerCase().includes(timezoneSearch.toLowerCase())
+  );
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      const email = user.email;
+      const name = email.split("@")[0];
+      return name.substring(0, 2).toUpperCase();
+    }
+    return "U";
+  };
+
+  if (loading) {
+    return (
+      <ERPLayout title="Settings" subtitle="Manage your account and preferences">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-erp-blue" />
+        </div>
+      </ERPLayout>
+    );
+  }
+
   return (
     <ERPLayout title="Settings" subtitle="Manage your account and preferences">
       <Tabs defaultValue="profile" className="space-y-6">
@@ -40,17 +275,17 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src="" />
+                  <AvatarImage src={user?.photoURL || ""} />
                   <AvatarFallback className="bg-erp-blue text-primary-foreground text-xl">
-                    ND
+                    {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" size="sm">
-                    Change Photo
-                  </Button>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    JPG, PNG or GIF. Max 2MB.
+                  <p className="text-sm font-medium">
+                    {firstName} {lastName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Profile photo from your Google account
                   </p>
                 </div>
               </div>
@@ -60,28 +295,56 @@ export default function Settings() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="Ndirangu" />
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter first name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="Shop" />
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Enter last name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    defaultValue="ndirangu@shop.co.ke"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter email"
+                    disabled
                   />
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" defaultValue="+254 712 345 678" />
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                  />
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button>Save Changes</Button>
+                <Button onClick={handleProfileSave} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -96,31 +359,117 @@ export default function Settings() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="businessName">Business Name</Label>
-                  <Input id="businessName" defaultValue="Ndirangu's Shop" />
+                  <Input
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="Enter business name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="businessType">Business Type</Label>
-                  <Input id="businessType" defaultValue="Retail Electronics" />
+                  <Input
+                    id="businessType"
+                    value={businessType}
+                    onChange={(e) => setBusinessType(e.target.value)}
+                    placeholder="Enter business type"
+                  />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="address">Address</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDetectLocation}
+                      disabled={detectingLocation}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {detectingLocation ? (
+                        <>
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          Detecting...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="mr-1 h-3 w-3" />
+                          Auto-detect
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <Input
                     id="address"
-                    defaultValue="Kenyatta Avenue, Nairobi, Kenya"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Enter address or use auto-detect"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Input id="currency" defaultValue="KSh (Kenyan Shilling)" />
+                  <Input
+                    id="currency"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    placeholder="Enter currency"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Input id="timezone" defaultValue="Africa/Nairobi (GMT+3)" />
+                  <div className="relative" ref={timezoneDropdownRef}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="timezone"
+                        value={timezone}
+                        onChange={(e) => {
+                          setTimezone(e.target.value);
+                          setTimezoneSearch(e.target.value);
+                          setShowTimezoneDropdown(true);
+                        }}
+                        onFocus={() => setShowTimezoneDropdown(true)}
+                        placeholder="Select timezone"
+                      />
+                      <Clock className="absolute right-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
+                    {showTimezoneDropdown && (
+                      <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                        {filteredTimezones.length > 0 ? (
+                          filteredTimezones.map((tz) => (
+                            <button
+                              key={tz}
+                              type="button"
+                              className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => {
+                                setTimezone(tz);
+                                setShowTimezoneDropdown(false);
+                              }}
+                            >
+                              {tz}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            No timezones found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button>Save Changes</Button>
+                <Button onClick={handleBusinessSave} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -140,7 +489,40 @@ export default function Settings() {
                       Get notified when products are running low
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={lowStockAlerts}
+                    onCheckedChange={setLowStockAlerts}
+                  />
+                </div>
+                {lowStockAlerts && (
+                  <div className="space-y-2 pl-4">
+                    <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
+                    <Input
+                      id="lowStockThreshold"
+                      type="number"
+                      min="1"
+                      value={lowStockThreshold}
+                      onChange={(e) => setLowStockThreshold(Number(e.target.value))}
+                      placeholder="Enter threshold (e.g., 5)"
+                      className="max-w-xs"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Alert when stock falls below this number
+                    </p>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">New Order Notifications</p>
+                    <p className="text-sm text-muted-foreground">
+                      Get alerted for every new sale
+                    </p>
+                  </div>
+                  <Switch
+                    checked={newOrderNotifications}
+                    onCheckedChange={setNewOrderNotifications}
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -150,17 +532,11 @@ export default function Settings() {
                       Receive daily sales reports via email
                     </p>
                   </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">New Order Notifications</p>
-                    <p className="text-sm text-muted-foreground">
-                      Get alerted for every new sale
-                    </p>
-                  </div>
-                  <Switch />
+                  <Switch
+                    checked={dailySalesSummary}
+                    onCheckedChange={setDailySalesSummary}
+                    disabled
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -170,8 +546,25 @@ export default function Settings() {
                       Reminders for recurring expenses
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={expenseReminders}
+                    onCheckedChange={setExpenseReminders}
+                    disabled
+                  />
                 </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleNotificationsSave} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -186,15 +579,78 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input id="currentPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">New Password</Label>
-                  <Input id="newPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input id="confirmPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -207,11 +663,24 @@ export default function Settings() {
                     Add an extra layer of security
                   </p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={twoFactorEnabled}
+                  onCheckedChange={setTwoFactorEnabled}
+                  disabled
+                />
               </div>
 
               <div className="flex justify-end">
-                <Button>Update Password</Button>
+                <Button onClick={handlePasswordChange} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>

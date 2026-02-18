@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { getBatchesByProductName, deleteOldDepletedBatches } from "@/services/purchaseService";
 import { Purchase } from "@/types/purchase";
 import { Hash, Calendar, Package, DollarSign, AlertCircle, Clock } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface BatchDetailsDialogProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export default function BatchDetailsDialog({
   onClose,
   productName,
 }: BatchDetailsDialogProps) {
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [batches, setBatches] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -102,7 +105,7 @@ export default function BatchDetailsDialog({
               {batches.map((batch, index) => {
                 const itemsRemaining = batch.itemsRemaining !== undefined ? batch.itemsRemaining : batch.items;
                 const isDepleted = itemsRemaining === 0;
-                const isLowStock = itemsRemaining > 0 && itemsRemaining < 10;
+                const isLowStock = itemsRemaining > 0 && itemsRemaining < lowStockThreshold;
 
                 // Calculate time until deletion for depleted batches
                 const getTimeUntilDeletion = () => {

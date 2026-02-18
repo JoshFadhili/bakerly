@@ -11,12 +11,14 @@ import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { usePurchaseDialog } from "@/contexts/PurchaseDialogContext";
 import { useExpenseDialog } from "@/contexts/ExpenseDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import NewSaleDialog from "@/components/sales/NewSaleDialog";
 import NewPurchaseDialog from "@/components/purchases/NewPurchaseDialog";
 import AddExpenseDialog from "@/components/expenses/AddExpenseDialog";
 import NewServiceOfferedDialog from "@/components/sales/NewServiceOfferedDialog";
 
 export default function Dashboard() {
+  const { businessName } = useSettings();
   const [kpiData, setKpiData] = useState<DashboardKPI | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -78,7 +80,7 @@ export default function Dashboard() {
 
   return (
     <ERPLayout
-      title="Welcome to Your Business Dashboard"
+      title={`Welcome to ${businessName} Dashboard`}
       subtitle="Overview of your shop's performance"
     >
       {/* KPI Cards */}

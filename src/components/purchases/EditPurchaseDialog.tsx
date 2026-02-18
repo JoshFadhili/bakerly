@@ -25,6 +25,7 @@ import { Purchase } from "@/types/purchase";
 import { getInventory, updateInventoryFromPurchaseEdit } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
 import { Search, Calendar, AlertCircle, Info, Hash, Package, TrendingDown, ArrowUpDown } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -43,6 +44,8 @@ export default function EditPurchaseDialog({
   onPurchaseUpdated,
   purchase,
 }: EditPurchaseDialogProps) {
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -73,9 +76,9 @@ export default function EditPurchaseDialog({
     return inventoryItem?.stock ?? 0;
   };
 
-  // Check if stock is low (<= 10)
+  // Check if stock is low
   const isLowStock = (productName: string): boolean => {
-    return getStockForProduct(productName) <= 10;
+    return getStockForProduct(productName) < lowStockThreshold;
   };
 
   // Calculate stock change based on status and quantity changes

@@ -1,4 +1,4 @@
-import { Bell, HelpCircle, ShoppingCart, Wrench } from "lucide-react";
+import { HelpCircle, ShoppingCart, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -14,6 +14,7 @@ import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 
 interface ERPHeaderProps {
   title: string;
@@ -83,18 +84,13 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
           <Button variant="ghost" size="icon" className="relative">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-erp-red text-[10px] font-medium text-primary-foreground">
-              3
-            </span>
-          </Button>
+          <NotificationDropdown />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="" alt="User" />
+                  <AvatarImage src={user?.photoURL || ""} alt="User" />
                   <AvatarFallback className="bg-erp-blue text-primary-foreground text-sm">
                     {getUserInitials()}
                   </AvatarFallback>

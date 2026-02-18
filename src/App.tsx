@@ -8,6 +8,8 @@ import { ServiceOfferedDialogProvider } from "@/contexts/ServiceOfferedDialogCon
 import { PurchaseDialogProvider } from "@/contexts/PurchaseDialogContext";
 import { ExpenseDialogProvider } from "@/contexts/ExpenseDialogContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -26,70 +28,74 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <SaleDialogProvider>
-        <ServiceOfferedDialogProvider>
-          <PurchaseDialogProvider>
-            <ExpenseDialogProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/" element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/sales" element={
-                      <ProtectedRoute>
-                        <Sales />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/products" element={
-                      <ProtectedRoute>
-                        <Products />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/inventory" element={
-                      <ProtectedRoute>
-                        <Inventory />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/purchases" element={
-                      <ProtectedRoute>
-                        <Purchases />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/expenses" element={
-                      <ProtectedRoute>
-                        <Expenses />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/finance" element={
-                      <ProtectedRoute>
-                        <Finance />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/reports" element={
-                      <ProtectedRoute>
-                        <Reports />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/settings" element={
-                      <ProtectedRoute>
-                        <Settings />
-                      </ProtectedRoute>
-                    } />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
-            </ExpenseDialogProvider>
-          </PurchaseDialogProvider>
-        </ServiceOfferedDialogProvider>
-      </SaleDialogProvider>
+      <SettingsProvider>
+        <NotificationProvider>
+          <SaleDialogProvider>
+            <ServiceOfferedDialogProvider>
+              <PurchaseDialogProvider>
+                <ExpenseDialogProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/" element={
+                          <ProtectedRoute>
+                            <Dashboard />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/sales" element={
+                          <ProtectedRoute>
+                            <Sales />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/products" element={
+                          <ProtectedRoute>
+                            <Products />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/inventory" element={
+                          <ProtectedRoute>
+                            <Inventory />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/purchases" element={
+                          <ProtectedRoute>
+                            <Purchases />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/expenses" element={
+                          <ProtectedRoute>
+                            <Expenses />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/finance" element={
+                          <ProtectedRoute>
+                            <Finance />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/reports" element={
+                          <ProtectedRoute>
+                            <Reports />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/settings" element={
+                          <ProtectedRoute>
+                            <Settings />
+                          </ProtectedRoute>
+                        } />
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </ExpenseDialogProvider>
+              </PurchaseDialogProvider>
+            </ServiceOfferedDialogProvider>
+          </SaleDialogProvider>
+        </NotificationProvider>
+      </SettingsProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -9,11 +9,13 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 import { Sale } from "../types/sale";
 import { deleteDoc } from "firebase/firestore";
 import { getPurchasesByProductName, updateBatchQuantity, addPurchase, restoreBatchQuantitiesForProduct } from "./purchaseService";
 import { updateInventoryFromSale, adjustStock } from "./inventoryService";
+import { addNotification, shouldCreateNotification } from "./notificationService";
+import { getUserSettings } from "./settingsService";
 
 // 🔗 Collection reference
 const salesRef = collection(db, "sales");
@@ -52,13 +54,31 @@ export const addSale = async (sale: Sale) => {
     const grossProfit = sale.totalAmount - cogs;
 
     // Add the sale record with COGS and Gross Profit
-    await addDoc(salesRef, {
+    const saleDoc = await addDoc(salesRef, {
       ...sale,
       cogs,
       grossProfit,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    // Create notification for new order if enabled
+    if (auth.currentUser && sale.status === "completed") {
+      const shouldNotify = await shouldCreateNotification(auth.currentUser.uid, 'new_order');
+      if (shouldNotify) {
+        await addNotification(
+          auth.currentUser.uid,
+          'new_order',
+          'New Order Received',
+          `${sale.items} ${sale.itemName} sold for KSh ${sale.totalAmount.toLocaleString()}`,
+          {
+            orderId: saleDoc.id,
+            productName: sale.itemName,
+            amount: sale.totalAmount,
+          }
+        );
+      }
+    }
 
     // If sale is completed, apply FIFO inventory deduction
     // Note: We don't throw an error if FIFO deduction fails after sale is added
@@ -106,7 +126,19 @@ export const applyFIFOInventoryDeduction = async (itemName: string, quantity: nu
     
     // Update the inventory collection's stock field
     if (totalDeducted > 0) {
-      await updateInventoryFromSale(itemName, totalDeducted);
+      // Get user's low stock threshold from settings
+      let lowStockThreshold = 5; // default value
+      if (auth.currentUser) {
+        try {
+          const userSettings = await getUserSettings(auth.currentUser.uid);
+          lowStockThreshold = userSettings.notifications?.lowStockThreshold ?? 5;
+        } catch (error) {
+          console.error("Error fetching user settings for low stock threshold:", error);
+          // Use default value if settings fetch fails
+        }
+      }
+      
+      await updateInventoryFromSale(itemName, totalDeducted, lowStockThreshold);
     }
     
     if (remainingQuantity > 0) {
@@ -124,13 +156,29 @@ export const updateInventoryFromSaleEdit = async (
   originalStatus: string,
   newStatus: string,
   originalQuantity: number,
-  newQuantity: number
+  newQuantity: number,
+  threshold?: number
 ): Promise<void> => {
   try {
+    // Get user's low stock threshold from settings if not provided
+    let lowStockThreshold = threshold;
+    if (lowStockThreshold === undefined && auth.currentUser) {
+      try {
+        const userSettings = await getUserSettings(auth.currentUser.uid);
+        lowStockThreshold = userSettings.notifications?.lowStockThreshold ?? 5;
+      } catch (error) {
+        console.error("Error fetching user settings for low stock threshold:", error);
+        lowStockThreshold = 5; // Use default value if settings fetch fails
+      }
+    }
+    if (lowStockThreshold === undefined) {
+      lowStockThreshold = 5; // Ensure we have a value
+    }
+
     // If original status was completed, restore the original quantity
     if (originalStatus === "completed") {
       // Restore inventory stock
-      await adjustStockByName(itemName, originalQuantity, "Sale edit - restore original quantity");
+      await adjustStockByName(itemName, originalQuantity, "Sale edit - restore original quantity", lowStockThreshold);
       
       // Restore batch quantities using reverse FIFO (newest batches first)
       await restoreBatchQuantitiesForProduct(itemName, originalQuantity);
@@ -150,7 +198,8 @@ export const updateInventoryFromSaleEdit = async (
 const adjustStockByName = async (
   itemName: string,
   quantity: number,
-  reason?: string
+  reason?: string,
+  threshold: number = 5
 ): Promise<void> => {
   try {
     const inventoryRef = collection(db, "inventory");
@@ -166,7 +215,7 @@ const adjustStockByName = async (
     const currentData = itemDoc.data();
     const currentStock = currentData.stock || 0;
     const newStock = currentStock + quantity;
-    const newStatus = newStock <= 10 ? "low_stock" : "active";
+    const newStatus = newStock < threshold ? "low_stock" : "active";
 
     await updateDoc(doc(db, "inventory", itemDoc.id), {
       stock: newStock,
@@ -292,11 +341,12 @@ export const deleteSale = async (id: string, sale?: Sale) => {
 // 🔄 RESTORE INVENTORY WHEN SALE IS DELETED OR CANCELLED
 const restoreInventoryFromSale = async (
   itemName: string,
-  quantity: number
+  quantity: number,
+  threshold: number = 5
 ): Promise<void> => {
   try {
     // Restore inventory stock
-    await adjustStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory");
+    await adjustStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory", threshold);
 
     // Restore batch quantities using reverse FIFO (newest batches first)
     await restoreBatchQuantitiesForProduct(itemName, quantity);

@@ -42,8 +42,11 @@ import { Purchase } from "@/types/purchase";
 import { getProducts } from "@/services/productService";
 import { deleteOldDepletedBatches } from "@/services/purchaseService";
 import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
+import { useSettings } from "@/contexts/SettingsContext";
 
 export default function Inventory() {
+  const { settings } = useSettings();
+  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -115,8 +118,8 @@ export default function Inventory() {
       ?.toLowerCase()
       .includes(searchQuery.toLowerCase());
 
-    const matchesFilter = filter === "all" || 
-      (filter === "low" && item.stock < 10);
+    const matchesFilter = filter === "all" ||
+      (filter === "low" && item.stock < lowStockThreshold);
 
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
 
@@ -136,7 +139,7 @@ export default function Inventory() {
   // Calculate stats
   const totalProducts = inventory.length;
   const totalStock = inventory.reduce((acc, item) => acc + item.stock, 0);
-  const lowStockCount = inventory.filter((item) => item.stock < 10).length;
+  const lowStockCount = inventory.filter((item) => item.stock < lowStockThreshold).length;
   const totalStockValue = inventory.reduce((acc, item) => {
     const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
     return acc + stockValue;
@@ -150,7 +153,8 @@ export default function Inventory() {
       selectedItem.id!,
       Number(adjustStockQuantity),
       selectedBatchId || undefined,
-      adjustmentReason
+      adjustmentReason,
+      lowStockThreshold
     );
 
     setIsAdjustStockOpen(false);
@@ -208,7 +212,7 @@ export default function Inventory() {
       ...filteredInventory.map((item) => {
         const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
         const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
-        const isLowStock = item.stock < 10;
+        const isLowStock = item.stock < lowStockThreshold;
         const status = isLowStock ? "Low Stock" : "In Stock";
         const lastUpdated = item.updatedAt
           ? item.updatedAt instanceof Date
@@ -413,7 +417,7 @@ export default function Inventory() {
                   {filteredInventory.map((item) => {
                     const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
                     const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
-                    const isLowStock = item.stock < 10;
+                    const isLowStock = item.stock < lowStockThreshold;
 
                     return (
                       <TableRow key={item.id}>

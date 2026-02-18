@@ -11,8 +11,9 @@ import {
   Timestamp,
   getDoc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Purchase } from "@/types/purchase";
+import { addNotification, shouldCreateNotification } from "./notificationService";
 
 const productsRef = collection(db, "products");
 const inventoryRef = collection(db, "inventory");
@@ -60,18 +61,18 @@ export const getInventoryByCategory = async (category: string) => {
 };
 
 // 📥 Get low stock items (from inventory collection)
-export const getLowStockItems = async () => {
+export const getLowStockItems = async (threshold: number = 5) => {
   const snapshot = await getDocs(inventoryRef);
   return snapshot.docs
     .map(doc => ({
       id: doc.id,
       ...doc.data(),
     }))
-    .filter((item: any) => item.stock < 10); // Using threshold of 10 for low stock
+    .filter((item: any) => item.stock < threshold);
 };
 
 // ➕ Add stock to product (updates inventory collection)
-export const addStock = async (id: string, quantity: number) => {
+export const addStock = async (id: string, quantity: number, threshold: number = 5) => {
   const itemRef = doc(db, "inventory", id);
   // First get the current inventory item to calculate new stock
   const snapshot = await getDocs(query(inventoryRef, where("__name__", "==", id)));
@@ -79,7 +80,7 @@ export const addStock = async (id: string, quantity: number) => {
 
   const currentData = snapshot.docs[0].data();
   const newStock = (currentData.stock || 0) + quantity;
-  const newStatus = newStock <= 10 ? "low_stock" : "active";
+  const newStatus = newStock < threshold ? "low_stock" : "active";
 
   await updateDoc(itemRef, {
     stock: newStock,
@@ -99,7 +100,7 @@ export const addStock = async (id: string, quantity: number) => {
 };
 
 // ✏️ Adjust stock (increase or decrease) - updates inventory collection
-export const adjustStock = async (id: string, adjustment: number, reason?: string) => {
+export const adjustStock = async (id: string, adjustment: number, reason?: string, threshold: number = 5) => {
   const itemRef = doc(db, "inventory", id);
   // First get the current inventory item
   const snapshot = await getDocs(query(inventoryRef, where("__name__", "==", id)));
@@ -107,7 +108,7 @@ export const adjustStock = async (id: string, adjustment: number, reason?: strin
 
   const currentData = snapshot.docs[0].data();
   const newStock = (currentData.stock || 0) + adjustment;
-  const newStatus = newStock <= 10 ? "low_stock" : "active";
+  const newStatus = newStock < threshold ? "low_stock" : "active";
 
   await updateDoc(itemRef, {
     stock: newStock,
@@ -188,7 +189,8 @@ export const syncInventoryFromPurchase = async (
   itemName: string,
   quantity: number,
   status: string,
-  category?: string
+  category?: string,
+  threshold: number = 5
 ) => {
   // Only update inventory if status is "received"
   if (status !== "received") {
@@ -211,7 +213,7 @@ export const syncInventoryFromPurchase = async (
       name: itemName,
       category: productCategory || "Uncategorized",
       stock: quantity,
-      status: quantity <= 10 ? "low_stock" : "active",
+      status: quantity < threshold ? "low_stock" : "active",
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -220,7 +222,7 @@ export const syncInventoryFromPurchase = async (
     const itemDoc = snapshot.docs[0];
     const currentData = itemDoc.data();
     const newStock = (currentData.stock || 0) + quantity;
-    const newStatus = newStock <= 10 ? "low_stock" : "active";
+    const newStatus = newStock < threshold ? "low_stock" : "active";
 
     // Update category if it was missing, is "Uncategorized", and we now have one from products
     const updateData: any = {
@@ -243,7 +245,8 @@ export const updateInventoryFromPurchaseEdit = async (
   originalStatus: string,
   newStatus: string,
   originalQuantity: number,
-  newQuantity: number
+  newQuantity: number,
+  threshold: number = 5
 ) => {
   // Auto-fetch category from products database
   const productCategory = await getProductCategoryByName(itemName);
@@ -259,7 +262,7 @@ export const updateInventoryFromPurchaseEdit = async (
         name: itemName,
         category: productCategory || "Uncategorized",
         stock: newQuantity,
-        status: newQuantity <= 10 ? "low_stock" : "active",
+        status: newQuantity < threshold ? "low_stock" : "active",
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
@@ -285,7 +288,7 @@ export const updateInventoryFromPurchaseEdit = async (
   }
 
   const newStock = currentStock + stockChange;
-  const newStatusValue = newStock <= 10 ? "low_stock" : "active";
+  const newStatusValue = newStock < threshold ? "low_stock" : "active";
 
   // Update category if it was missing, is "Uncategorized", and we now have one from products
   const updateData: any = {
@@ -304,7 +307,8 @@ export const updateInventoryFromPurchaseEdit = async (
 // 🛒 Update inventory when a sale is made (deduct stock)
 export const updateInventoryFromSale = async (
   itemName: string,
-  quantitySold: number
+  quantitySold: number,
+  threshold: number = 5
 ): Promise<void> => {
   try {
     // Check if inventory item exists
@@ -322,7 +326,7 @@ export const updateInventoryFromSale = async (
 
     // Calculate new stock (ensure it doesn't go negative)
     const newStock = Math.max(0, currentStock - quantitySold);
-    const newStatus = newStock <= 10 ? "low_stock" : "active";
+    const newStatus = newStock < threshold ? "low_stock" : "active";
 
     // Update the inventory item
     await updateDoc(doc(db, "inventory", itemDoc.id), {
@@ -340,6 +344,26 @@ export const updateInventoryFromSale = async (
       previousStock: currentStock,
       newStock: newStock,
     });
+
+    // Check if stock fell below threshold and create notification
+    if (newStock < threshold && currentStock >= threshold) {
+      if (auth.currentUser) {
+        const shouldNotify = await shouldCreateNotification(auth.currentUser.uid, 'low_stock');
+        if (shouldNotify) {
+          await addNotification(
+            auth.currentUser.uid,
+            'low_stock',
+            'Low Stock Alert',
+            `${itemName} is running low on stock. Current stock: ${newStock} (threshold: ${threshold})`,
+            {
+              productName: itemName,
+              stockLevel: newStock,
+              threshold: threshold,
+            }
+          );
+        }
+      }
+    }
   } catch (error) {
     console.error("Error updating inventory from sale:", error);
     throw new Error("Failed to update inventory from sale. Please try again.");
@@ -388,7 +412,8 @@ export const adjustStockWithBatch = async (
   inventoryId: string,
   adjustment: number,
   batchId?: string,
-  reason?: string
+  reason?: string,
+  threshold: number = 5
 ) => {
   try {
     // Get the inventory item
@@ -403,7 +428,7 @@ export const adjustStockWithBatch = async (
 
     // Calculate new stock
     const newStock = Math.max(0, currentStock + adjustment);
-    const newStatus = newStock <= 10 ? "low_stock" : "active";
+    const newStatus = newStock < threshold ? "low_stock" : "active";
 
     // Update inventory
     await updateDoc(doc(db, "inventory", inventoryId), {
@@ -453,7 +478,7 @@ export const adjustStockWithBatch = async (
 };
 
 // 🔄 Recalculate inventory stock from batches (sync inventory with batch data)
-export const recalculateInventoryFromBatches = async (inventoryId: string) => {
+export const recalculateInventoryFromBatches = async (inventoryId: string, threshold: number = 5) => {
   try {
     // Get the inventory item
     const inventorySnapshot = await getDocs(query(inventoryRef, where("__name__", "==", inventoryId)));
@@ -474,7 +499,7 @@ export const recalculateInventoryFromBatches = async (inventoryId: string) => {
     }, 0);
 
     // Update inventory with calculated stock
-    const newStatus = totalStock <= 10 ? "low_stock" : "active";
+    const newStatus = totalStock < threshold ? "low_stock" : "active";
 
     await updateDoc(doc(db, "inventory", inventoryId), {
       stock: totalStock,

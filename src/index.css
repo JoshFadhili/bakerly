@@ -57,10 +57,26 @@
     --erp-purple: 262 83% 58%;
 
     /* KPI Card Gradients */
-    --kpi-sales: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 40%) 100%);
-    --kpi-revenue: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 76% 30%) 100%);
-    --kpi-profit: linear-gradient(135deg, hsl(168 76% 42%) 0%, hsl(168 76% 35%) 100%);
-    --kpi-alert: linear-gradient(135deg, hsl(0 72% 51%) 0%, hsl(0 72% 42%) 100%);
+    --kpi-sales: linear-gradient(
+      135deg,
+      hsl(217 91% 50%) 0%,
+      hsl(217 91% 40%) 100%
+    );
+    --kpi-revenue: linear-gradient(
+      135deg,
+      hsl(142 76% 36%) 0%,
+      hsl(142 76% 30%) 100%
+    );
+    --kpi-profit: linear-gradient(
+      135deg,
+      hsl(168 76% 42%) 0%,
+      hsl(168 76% 35%) 100%
+    );
+    --kpi-alert: linear-gradient(
+      135deg,
+      hsl(0 72% 51%) 0%,
+      hsl(0 72% 42%) 100%
+    );
 
     /* Chart colors */
     --chart-1: 217 91% 50%;
@@ -73,8 +89,12 @@
     --shadow-2xs: 0 1px 1px 0 hsl(222 47% 11% / 0.03);
     --shadow-xs: 0 1px 2px 0 hsl(222 47% 11% / 0.04);
     --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
+    --shadow-md:
+      0 4px 6px -1px hsl(222 47% 11% / 0.1),
+      0 2px 4px -2px hsl(222 47% 11% / 0.1);
+    --shadow-lg:
+      0 10px 15px -3px hsl(222 47% 11% / 0.1),
+      0 4px 6px -4px hsl(222 47% 11% / 0.1);
   }
 
   .dark {
@@ -115,6 +135,58 @@
     --sidebar-border: 222 47% 18%;
     --sidebar-ring: 217 91% 60%;
     --sidebar-muted: 220 9% 50%;
+
+    /* ERP Semantic Colors - Same in dark mode for consistency */
+    --erp-blue: 217 91% 60%;
+    --erp-green: 142 76% 45%;
+    --erp-teal: 168 76% 50%;
+    --erp-red: 0 72% 60%;
+    --erp-orange: 25 95% 60%;
+    --erp-purple: 262 83% 65%;
+
+    /* KPI Card Gradients - Adjusted for dark mode */
+    --kpi-sales: linear-gradient(
+      135deg,
+      hsl(217 91% 60%) 0%,
+      hsl(217 91% 50%) 100%
+    );
+    --kpi-revenue: linear-gradient(
+      135deg,
+      hsl(142 76% 45%) 0%,
+      hsl(142 76% 38%) 100%
+    );
+    --kpi-profit: linear-gradient(
+      135deg,
+      hsl(168 76% 50%) 0%,
+      hsl(168 76% 42%) 100%
+    );
+    --kpi-alert: linear-gradient(
+      135deg,
+      hsl(0 72% 60%) 0%,
+      hsl(0 72% 50%) 100%
+    );
+
+    /* Chart colors - Adjusted for dark mode */
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 45%;
+    --chart-3: 168 76% 50%;
+    --chart-4: 25 95% 60%;
+    --chart-5: 262 83% 65%;
+
+    /* Shadows - Adjusted for dark mode */
+    --shadow-2xs: 0 1px 1px 0 hsl(210 40% 98% / 0.05);
+    --shadow-xs: 0 1px 2px 0 hsl(210 40% 98% / 0.06);
+    --shadow-sm: 0 1px 2px 0 hsl(210 40% 98% / 0.08);
+    --shadow-md:
+      0 4px 6px -1px hsl(210 40% 98% / 0.12),
+      0 2px 4px -2px hsl(210 40% 98% / 0.12);
+    --shadow-lg:
+      0 10px 15px -3px hsl(210 40% 98% / 0.15),
+      0 4px 6px -4px hsl(210 40% 98% / 0.15);
+    --shadow-xl:
+      0 20px 25px -5px hsl(210 40% 98% / 0.18),
+      0 8px 10px -6px hsl(210 40% 98% / 0.18);
+    --shadow-2xl: 0 25px 50px -12px hsl(210 40% 98% / 0.25);
   }
 }
 
@@ -125,7 +197,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
 }
 

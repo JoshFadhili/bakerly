@@ -372,10 +372,13 @@ export const getBatchesByProductName = async (itemName: string): Promise<Purchas
       purchase.itemName?.trim().toLowerCase() === itemName.trim().toLowerCase()
     );
 
+    // Filter out hidden batches (marked as hidden by admin)
+    const visibleBatches = filtered.filter(purchase => !purchase.hidden);
+
     // Filter out depleted batches older than 168 hours (1 week)
     const now = Date.now();
     const hoursInMs = 168 * 60 * 60 * 1000; // 168 hours in milliseconds
-    const activeBatches = filtered.filter(purchase => {
+    const activeBatches = visibleBatches.filter(purchase => {
       const itemsRemaining = purchase.itemsRemaining !== undefined ? purchase.itemsRemaining : purchase.items;
       
       // If batch is not depleted, include it
@@ -514,13 +517,14 @@ export const restoreBatchQuantitiesForProduct = async (itemName: string, quantit
   }
 };
 
-// 🗑️ DELETE DEPLETED BATCHES OLDER THAN 168 HOURS (1 week)
-export const deleteOldDepletedBatches = async (): Promise<{ deleted: number; skipped: number }> => {
+// 🗑️ HIDE DEPLETED BATCHES OLDER THAN 168 HOURS (1 week)
+// This preserves purchase records while hiding them from the batch details view
+export const deleteOldDepletedBatches = async (): Promise<{ hidden: number; skipped: number }> => {
   try {
     const q = query(purchasesRef, where("status", "==", "received"));
     const snapshot = await getDocs(q);
 
-    let deleted = 0;
+    let hidden = 0;
     let skipped = 0;
     const now = Date.now();
     const hoursInMs = 168 * 60 * 60 * 1000; // 168 hours in milliseconds
@@ -539,18 +543,18 @@ export const deleteOldDepletedBatches = async (): Promise<{ deleted: number; ski
 
         // Check if batch is older than 168 hours
         if (now - depletedAtTime > hoursInMs) {
-          await deleteDoc(doc(db, "purchases", docSnap.id));
-          deleted++;
-          console.log(`Deleted depleted batch ${data.batchId} from ${data.itemName}`);
+          await updateDoc(doc(db, "purchases", docSnap.id), { hidden: true });
+          hidden++;
+          console.log(`Hidden depleted batch ${data.batchId} from ${data.itemName}`);
         } else {
           skipped++;
         }
       }
     }
 
-    return { deleted, skipped };
+    return { hidden, skipped };
   } catch (error) {
-    console.error("Error deleting old depleted batches:", error);
-    throw new Error("Failed to delete old depleted batches. Please try again.");
+    console.error("Error hiding old depleted batches:", error);
+    throw new Error("Failed to hide old depleted batches. Please try again.");
   }
 };

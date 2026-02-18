@@ -13,4 +13,5 @@ export interface Purchase {
   createdAt: Date;
   updatedAt?: Date;
   depletedAt?: Date; // Timestamp when batch became depleted (itemsRemaining = 0)
+  hidden?: boolean; // If true, batch is hidden from batch details view but preserved in database
 }

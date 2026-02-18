@@ -8,13 +8,36 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Building, User, Bell, Shield, MapPin, Clock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Building, User, Bell, Shield, MapPin, Clock, Loader2, Eye, EyeOff, Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { toast } from "sonner";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { commonTimezones } from "@/services/settingsService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  verifyAdminPassword,
+  deleteAllSales,
+  deleteAllServicesOffered,
+  deleteAllProducts,
+  deleteAllServices,
+  deleteAllInventory,
+  deleteAllPurchases,
+  deleteAllBatches,
+  deleteAllStockAdjustments,
+  deleteAllExpenses,
+  deleteDepletedBatches,
+} from "@/services/adminService";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -52,6 +75,12 @@ export default function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Admin Controls state
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Ref for timezone dropdown
   const timezoneDropdownRef = useRef<HTMLDivElement>(null);
@@ -217,6 +246,92 @@ export default function Settings() {
     }
   };
 
+  // Handle admin deletion action
+  const handleAdminAction = (action: string) => {
+    setSelectedAction(action);
+    setAdminDialogOpen(true);
+  };
+
+  // Confirm deletion with password
+  const handleConfirmDelete = async () => {
+    if (!selectedAction || !adminPassword.trim()) {
+      toast.error("Password is required");
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+
+      // Verify password first
+      await verifyAdminPassword(adminPassword);
+
+      // Execute the selected action
+      let deletedCount = 0;
+      let successMessage = "";
+
+      switch (selectedAction) {
+        case "depletedBatches":
+          deletedCount = await deleteDepletedBatches();
+          successMessage = `Hidden ${deletedCount} depleted batch(es) from batch details view`;
+          break;
+        case "sales":
+          deletedCount = await deleteAllSales();
+          successMessage = `Deleted ${deletedCount} sale(s)`;
+          break;
+        case "servicesOffered":
+          deletedCount = await deleteAllServicesOffered();
+          successMessage = `Deleted ${deletedCount} service offered record(s)`;
+          break;
+        case "products":
+          deletedCount = await deleteAllProducts();
+          successMessage = `Deleted ${deletedCount} product(s)`;
+          break;
+        case "services":
+          deletedCount = await deleteAllServices();
+          successMessage = `Deleted ${deletedCount} service(s)`;
+          break;
+        case "inventory":
+          deletedCount = await deleteAllInventory();
+          successMessage = `Deleted ${deletedCount} inventory record(s)`;
+          break;
+        case "purchases":
+          deletedCount = await deleteAllPurchases();
+          successMessage = `Deleted ${deletedCount} purchase order(s)`;
+          break;
+        case "batches":
+          deletedCount = await deleteAllBatches();
+          successMessage = `Deleted ${deletedCount} batch(es)`;
+          break;
+        case "stockAdjustments":
+          deletedCount = await deleteAllStockAdjustments();
+          successMessage = `Deleted ${deletedCount} stock adjustment(s)`;
+          break;
+        case "expenses":
+          deletedCount = await deleteAllExpenses();
+          successMessage = `Deleted ${deletedCount} expense(s)`;
+          break;
+        default:
+          throw new Error("Invalid action");
+      }
+
+      toast.success(successMessage);
+      setAdminDialogOpen(false);
+      setAdminPassword("");
+      setSelectedAction(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete records");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Cancel deletion
+  const handleCancelDelete = () => {
+    setAdminDialogOpen(false);
+    setAdminPassword("");
+    setSelectedAction(null);
+  };
+
   // Filter timezones based on search
   const filteredTimezones = commonTimezones.filter((tz) =>
     tz.toLowerCase().includes(timezoneSearch.toLowerCase())
@@ -264,6 +379,10 @@ export default function Settings() {
           <TabsTrigger value="security" className="gap-2">
             <Shield className="h-4 w-4" />
             Security
+          </TabsTrigger>
+          <TabsTrigger value="admin" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Admin Controls
           </TabsTrigger>
         </TabsList>
 
@@ -682,6 +801,174 @@ export default function Settings() {
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="admin">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Admin Controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <p className="text-sm text-destructive font-medium">
+                  ⚠️ Warning: These actions are irreversible and will permanently delete data.
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  You must be logged in as smwaindirangu76@gmail.com and provide your password to perform these actions.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("depletedBatches")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Depleted Batches
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("sales")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Sales
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("servicesOffered")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Services Offered
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("products")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Products
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("services")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Services
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("inventory")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Inventory Records
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("purchases")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Purchase Orders
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("batches")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Batches
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("stockAdjustments")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Stock Adjustments
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("expenses")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Expenses
+                </Button>
+              </div>
+
+              {/* Password Confirmation Dialog */}
+              <AlertDialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      Confirm Deletion
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. Please enter your password to confirm.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="adminPassword">Password</Label>
+                      <Input
+                        id="adminPassword"
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        disabled={isDeleting}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleConfirmDelete();
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        You must be logged in as smwaindirangu76@gmail.com
+                      </p>
+                    </div>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={handleCancelDelete} disabled={isDeleting}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleConfirmDelete}
+                      disabled={isDeleting || !adminPassword.trim()}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Confirm Delete"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </TabsContent>

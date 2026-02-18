@@ -76,8 +76,8 @@ export default function Inventory() {
       // Clean up old depleted batches (older than 168 hours)
       try {
         const cleanupResult = await deleteOldDepletedBatches();
-        if (cleanupResult.deleted > 0) {
-          console.log(`Cleaned up ${cleanupResult.deleted} old depleted batches`);
+        if (cleanupResult.hidden > 0) {
+          console.log(`Hidden ${cleanupResult.hidden} old depleted batches`);
         }
       } catch (cleanupError) {
         console.warn("Failed to clean up old depleted batches:", cleanupError);

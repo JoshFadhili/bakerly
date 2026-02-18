@@ -1,4 +1,4 @@
-import { HelpCircle, ShoppingCart, Wrench } from "lucide-react";
+import { HelpCircle, ShoppingCart, Wrench, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +13,8 @@ import { useNavigate } from "react-router-dom";
 import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useHelpDialog } from "@/contexts/HelpDialogContext";
 import { toast } from "sonner";
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 
@@ -26,6 +28,8 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   const { openNewSaleDialog } = useSaleDialog();
   const { openNewServiceOfferedDialog } = useServiceOfferedDialog();
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { openHelpDialog } = useHelpDialog();
 
   const handleNewSaleClick = () => {
     // Navigate to sales page
@@ -81,10 +85,30 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
         </Button>
 
         <div className="ml-2 flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            onClick={() => openHelpDialog()}
+            aria-label="Help"
+          >
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
           <NotificationDropdown />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="relative"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? (
+              <Moon className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <Sun className="h-5 w-5 text-muted-foreground" />
+            )}
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -109,7 +133,6 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">

@@ -81,19 +81,19 @@ export default function BatchDetailsDialog({
           <>
             {/* Summary Stats */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Hash className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">Total Batches</span>
+                  <Hash className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Total Batches</span>
                 </div>
-                <p className="text-2xl font-bold text-blue-900">{totalBatches}</p>
+                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalBatches}</p>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Package className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">Total Items</span>
+                  <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">Total Items</span>
                 </div>
-                <p className="text-2xl font-bold text-green-900">{totalItems}</p>
+                <p className="text-2xl font-bold text-green-900 dark:text-green-100">{totalItems}</p>
               </div>
             </div>
 
@@ -135,10 +135,10 @@ export default function BatchDetailsDialog({
                     key={batch.id}
                     className={`border rounded-lg p-4 ${
                       isDepleted
-                        ? "bg-gray-50 border-gray-200"
+                        ? "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
                         : isLowStock
-                        ? "bg-yellow-50 border-yellow-200"
-                        : "bg-white border-gray-200"
+                        ? "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800"
+                        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-3">
@@ -155,10 +155,10 @@ export default function BatchDetailsDialog({
                           }
                           className={
                             isDepleted
-                              ? "bg-gray-200 text-gray-700"
+                              ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
                               : isLowStock
-                              ? "bg-yellow-100 text-yellow-700 border-yellow-300"
-                              : "bg-green-100 text-green-700"
+                              ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700"
+                              : "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200"
                           }
                         >
                           {isDepleted
@@ -199,7 +199,7 @@ export default function BatchDetailsDialog({
                         <div>
                           <p className="text-muted-foreground">Remaining</p>
                           <p className={`font-medium ${
-                            isDepleted ? "text-gray-600" : isLowStock ? "text-yellow-600" : "text-green-600"
+                            isDepleted ? "text-gray-600 dark:text-gray-400" : isLowStock ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"
                           }`}>
                             {itemsRemaining} items
                           </p>
@@ -234,12 +234,12 @@ export default function BatchDetailsDialog({
 
                     {isDepleted && (
                       <div className="mt-3 space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                           <AlertCircle className="h-4 w-4" />
                           <span>This batch has been fully sold</span>
                         </div>
                         {timeUntilDeletion && (
-                          <div className="flex items-center gap-2 text-sm text-orange-600">
+                          <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
                             <Clock className="h-4 w-4" />
                             <span>Will be deleted in {timeUntilDeletion}</span>
                           </div>
@@ -252,10 +252,10 @@ export default function BatchDetailsDialog({
             </div>
 
             {/* FIFO Info */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-semibold mb-1">FIFO (First In, First Out)</p>
                   <p>
                     When sales are made, items are automatically deducted from the oldest batch first.
@@ -266,10 +266,10 @@ export default function BatchDetailsDialog({
             </div>
 
             {/* Auto-Deletion Info */}
-            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
               <div className="flex items-start gap-2">
-                <Clock className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-orange-800">
+                <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-orange-800 dark:text-orange-200">
                   <p className="font-semibold mb-1">Automatic Batch Cleanup</p>
                   <p>
                     Depleted batches (with 0 items remaining) are automatically deleted from this view after 168 hours (1 week).

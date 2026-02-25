@@ -40,10 +40,12 @@ import {
 import { InventoryItem } from "@/types/inventory";
 import { Product } from "@/types/product";
 import { Purchase } from "@/types/purchase";
-import { BakingSupply } from "@/types/bakingSupply";
 import { getProducts } from "@/services/productService";
-import { getBakingSupplies } from "@/services/bakingSupplyService";
 import { deleteOldDepletedBatches } from "@/services/purchaseService";
+import {
+  getBakingSupplyInventoryFromBatches,
+  BakingSupplyInventoryItem,
+} from "@/services/bakingSupplyPurchaseService";
 import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
 import BakingSupplyBatchDetailsDialog from "@/components/inventory/BakingSupplyBatchDetailsDialog";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -64,8 +66,8 @@ export default function Inventory() {
   const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  // Baking Supplies State
-  const [bakingSupplies, setBakingSupplies] = useState<BakingSupply[]>([]);
+  // Baking Supplies State - Now sourced from purchase batches
+  const [bakingSupplyInventory, setBakingSupplyInventory] = useState<BakingSupplyInventoryItem[]>([]);
   const [loadingBakingSupplies, setLoadingBakingSupplies] = useState(true);
   const [bakingSearchQuery, setBakingSearchQuery] = useState("");
   const [bakingFilter, setBakingFilter] = useState("all");
@@ -127,13 +129,13 @@ export default function Inventory() {
     }
   };
 
-  // Fetch baking supplies
-  const fetchBakingSupplies = async () => {
+  // Fetch baking supply inventory from batches
+  const fetchBakingSupplyInventory = async () => {
     try {
-      const suppliesList = await getBakingSupplies();
-      setBakingSupplies(suppliesList);
+      const inventoryData = await getBakingSupplyInventoryFromBatches(lowStockThreshold);
+      setBakingSupplyInventory(inventoryData);
     } catch (error) {
-      console.error("Error loading baking supplies:", error);
+      console.error("Error loading baking supply inventory:", error);
     } finally {
       setLoadingBakingSupplies(false);
     }
@@ -141,7 +143,7 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchData();
-    fetchBakingSupplies();
+    fetchBakingSupplyInventory();
   }, []);
 
   // Filter inventory based on search query and filters
@@ -164,8 +166,8 @@ export default function Inventory() {
   });
 
   // Filter baking supplies based on search query and filters
-  const filteredBakingSupplies = bakingSupplies.filter((supply) => {
-    const matchesSearch = supply.name
+  const filteredBakingSupplies = bakingSupplyInventory.filter((supply) => {
+    const matchesSearch = supply.supplyName
       ?.toLowerCase()
       .includes(bakingSearchQuery.toLowerCase()) ||
       supply.category?.toLowerCase().includes(bakingSearchQuery.toLowerCase());
@@ -186,7 +188,7 @@ export default function Inventory() {
 
   // Get unique categories for baking supplies
   const bakingCategories = Array.from(
-    new Set(bakingSupplies.map((supply) => supply.category))
+    new Set(bakingSupplyInventory.map((supply) => supply.category))
   ).filter(Boolean);
 
   // Calculate stats for finished products
@@ -198,13 +200,13 @@ export default function Inventory() {
     return acc + stockValue;
   }, 0);
 
-  // Calculate stats for baking supplies
-  const totalBakingSupplies = bakingSupplies.length;
-  const totalBakingSupplyQuantity = bakingSupplies.reduce((acc, supply) => acc + supply.quantity, 0);
-  const lowStockBakingSupplies = bakingSupplies.filter(
+  // Calculate stats for baking supplies (from batches)
+  const totalBakingSupplies = bakingSupplyInventory.length;
+  const totalBakingSupplyQuantity = bakingSupplyInventory.reduce((acc, supply) => acc + supply.quantityRemaining, 0);
+  const lowStockBakingSupplies = bakingSupplyInventory.filter(
     (supply) => supply.status === "low_stock" || supply.status === "out_of_stock"
   ).length;
-  const totalBakingSupplyValue = bakingSupplies.reduce((acc, supply) => acc + (supply.quantity * supply.salePrice), 0);
+  const totalBakingSupplyValue = bakingSupplyInventory.reduce((acc, supply) => acc + supply.stockValue, 0);
 
   // Handle adjust stock
   const handleAdjustStock = async () => {
@@ -251,8 +253,8 @@ export default function Inventory() {
   };
 
   // Handle view baking supply batch details
-  const handleViewBakingSupplyBatchDetails = (supply: BakingSupply) => {
-    setSelectedBakingSupplyForBatches(supply.name);
+  const handleViewBakingSupplyBatchDetails = (supply: BakingSupplyInventoryItem) => {
+    setSelectedBakingSupplyForBatches(supply.supplyName);
     setIsBakingSupplyBatchDetailsOpen(true);
   };
 
@@ -326,26 +328,25 @@ export default function Inventory() {
     const headers = [
       "Supply Name",
       "Category",
-      "Quantity",
+      "Quantity Remaining",
       "Unit",
-      "Sale Price",
+      "Avg Unit Price",
       "Stock Value",
       "Status",
     ];
     const csvContent = [
       headers.join(","),
       ...filteredBakingSupplies.map((supply) => {
-        const stockValue = supply.quantity * supply.salePrice;
         const status = supply.status === "in_stock" ? "In Stock" : 
                        supply.status === "low_stock" ? "Low Stock" : "Out of Stock";
 
         return [
-          `"${supply.name || ""}"`,
+          `"${supply.supplyName || ""}"`,
           `"${supply.category || ""}"`,
-          supply.quantity || 0,
+          supply.quantityRemaining || 0,
           `"${supply.unit || ""}"`,
-          supply.salePrice || 0,
-          stockValue.toFixed(2),
+          supply.unitPrice.toFixed(2),
+          supply.stockValue.toFixed(2),
           status,
         ].join(",");
       }),
@@ -713,7 +714,7 @@ export default function Inventory() {
 
             <CardContent>
               {loadingBakingSupplies ? (
-                <p className="text-sm text-muted-foreground">Loading baking supplies...</p>
+                <p className="text-sm text-muted-foreground">Loading baking supplies inventory...</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -723,7 +724,7 @@ export default function Inventory() {
                         <TableHead className="hidden sm:table-cell">Category</TableHead>
                         <TableHead>Quantity</TableHead>
                         <TableHead className="hidden md:table-cell">Unit</TableHead>
-                        <TableHead className="hidden lg:table-cell">Sale Price</TableHead>
+                        <TableHead className="hidden lg:table-cell">Avg Unit Price</TableHead>
                         <TableHead className="hidden lg:table-cell">Stock Value</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -732,20 +733,17 @@ export default function Inventory() {
 
                     <TableBody>
                       {filteredBakingSupplies.map((supply) => {
-                        const stockValue = supply.quantity * supply.salePrice;
-                        const isLowStock = supply.status === "low_stock" || supply.status === "out_of_stock";
-
                         return (
-                          <TableRow key={supply.id}>
-                            <TableCell className="font-medium">{supply.name}</TableCell>
+                          <TableRow key={supply.supplyName}>
+                            <TableCell className="font-medium">{supply.supplyName}</TableCell>
                             <TableCell className="hidden sm:table-cell">{supply.category}</TableCell>
-                            <TableCell>{supply.quantity}</TableCell>
+                            <TableCell>{supply.quantityRemaining}</TableCell>
                             <TableCell className="hidden md:table-cell">{supply.unit}</TableCell>
                             <TableCell className="hidden lg:table-cell">
-                              KSh {supply.salePrice.toLocaleString()}
+                              KSh {supply.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell">
-                              KSh {stockValue.toLocaleString()}
+                              KSh {supply.stockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell>
                               <Badge

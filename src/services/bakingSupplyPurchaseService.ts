@@ -548,3 +548,102 @@ export const restoreBakingSupplyBatchQuantitiesForSupply = async (supplyName: st
     throw new Error("Failed to restore baking supply batch quantities. Please try again.");
   }
 };
+
+// 📊 GET BAKING SUPPLY INVENTORY FROM BATCHES
+// Calculates inventory for each baking supply from purchase batches
+export interface BakingSupplyInventoryItem {
+  id?: string;
+  supplyName: string;
+  category: string;
+  unit: string;
+  totalQuantity: number;
+  quantityRemaining: number;
+  unitPrice: number; // Average unit price across batches
+  stockValue: number; // Calculated from batches
+  status: "in_stock" | "low_stock" | "out_of_stock";
+  batches: BakingSupplyPurchase[];
+}
+
+export const getBakingSupplyInventoryFromBatches = async (lowStockThreshold: number = 5): Promise<BakingSupplyInventoryItem[]> => {
+  try {
+    // Get all received baking supply purchases
+    const allPurchases = await getBakingSupplyPurchases();
+    const receivedPurchases = allPurchases.filter(p => p.status === "received");
+
+    // Group by supply name
+    const supplyMap = new Map<string, BakingSupplyPurchase[]>();
+    
+    for (const purchase of receivedPurchases) {
+      const existing = supplyMap.get(purchase.supplyName) || [];
+      existing.push(purchase);
+      supplyMap.set(purchase.supplyName, existing);
+    }
+
+    // Calculate inventory for each supply
+    const inventoryItems: BakingSupplyInventoryItem[] = [];
+    
+    for (const [supplyName, purchases] of supplyMap) {
+      // Calculate total quantity remaining
+      const totalQuantityRemaining = purchases.reduce((sum, p) => {
+        return sum + (p.quantityRemaining !== undefined ? p.quantityRemaining : p.quantity);
+      }, 0);
+
+      // Calculate total quantity (original)
+      const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0);
+
+      // Calculate weighted average unit price
+      const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+      const avgUnitPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+
+      // Calculate stock value from remaining quantities
+      const stockValue = purchases.reduce((sum, p) => {
+        const remaining = p.quantityRemaining !== undefined ? p.quantityRemaining : p.quantity;
+        return sum + (remaining * p.unitPrice);
+      }, 0);
+
+      // Determine status
+      let status: "in_stock" | "low_stock" | "out_of_stock" = "in_stock";
+      if (totalQuantityRemaining === 0) {
+        status = "out_of_stock";
+      } else if (totalQuantityRemaining < lowStockThreshold) {
+        status = "low_stock";
+      }
+
+      // Get category and unit from first purchase
+      const firstPurchase = purchases[0];
+
+      inventoryItems.push({
+        supplyName,
+        category: firstPurchase.category || "Uncategorized",
+        unit: firstPurchase.unit || "units",
+        totalQuantity,
+        quantityRemaining: totalQuantityRemaining,
+        unitPrice: avgUnitPrice,
+        stockValue,
+        status,
+        batches: purchases,
+      });
+    }
+
+    // Sort by name
+    return inventoryItems.sort((a, b) => a.supplyName.localeCompare(b.supplyName));
+  } catch (error) {
+    console.error("Error calculating baking supply inventory from batches:", error);
+    throw new Error("Failed to calculate baking supply inventory. Please try again.");
+  }
+};
+
+// 📊 CALCULATE STOCK VALUE FOR A SPECIFIC SUPPLY
+export const calculateBakingSupplyStockValueFromBatches = async (supplyName: string): Promise<number> => {
+  try {
+    const batches = await getBatchesBySupplyName(supplyName);
+    
+    return batches.reduce((sum, batch) => {
+      const remaining = batch.quantityRemaining !== undefined ? batch.quantityRemaining : batch.quantity;
+      return sum + (remaining * batch.unitPrice);
+    }, 0);
+  } catch (error) {
+    console.error("Error calculating baking supply stock value:", error);
+    return 0;
+  }
+};

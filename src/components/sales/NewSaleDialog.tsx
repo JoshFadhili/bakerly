@@ -25,16 +25,26 @@ import { Search, Calendar, AlertCircle, Package, TrendingDown, Clock } from "luc
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/contexts/SettingsContext";
 
+interface FinishedProductData {
+  batchId: string;
+  itemName: string;
+  itemsAvailable: number;
+  unitPrice: number;
+  supplier: string;
+}
+
 interface NewSaleDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSaleAdded: () => void;
+  finishedProductData?: FinishedProductData | null;
 }
 
 export default function NewSaleDialog({
   isOpen,
   onClose,
   onSaleAdded,
+  finishedProductData,
 }: NewSaleDialogProps) {
   const { toast } = useToast();
   const { settings } = useSettings();
@@ -128,6 +138,29 @@ export default function NewSaleDialog({
       refreshInventory();
     }
   }, [isOpen]);
+
+  // Handle finished product data from FinishedProducts page
+  useEffect(() => {
+    if (finishedProductData && isOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        itemName: finishedProductData.itemName,
+        items: "1",
+        totalAmount: finishedProductData.unitPrice.toString(),
+      }));
+      setSearchQuery(finishedProductData.itemName);
+      // Create a temporary product object for the finished product
+      const tempProduct: Product = {
+        id: finishedProductData.batchId,
+        name: finishedProductData.itemName,
+        salePrice: finishedProductData.unitPrice,
+        category: "Finished Product",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setSelectedProduct(tempProduct);
+    }
+  }, [finishedProductData, isOpen]);
 
   // Filter products based on search query
   useEffect(() => {

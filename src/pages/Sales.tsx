@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ERPLayout } from "@/components/layout/ERPLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,8 +40,11 @@ import { useSaleDialog } from "@/contexts/SaleDialogContext";
 import { useServiceOfferedDialog } from "@/contexts/ServiceOfferedDialogContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { toast } from "sonner";
 
 export default function Sales() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [sales, setSales] = useState<Sale[]>([]);
   const [servicesOffered, setServicesOffered] = useState<ServiceOffered[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +54,15 @@ export default function Sales() {
   const { isNewSaleDialogOpen: globalDialogOpen, closeNewSaleDialog } = useSaleDialog();
   const { isNewServiceOfferedDialogOpen: globalServiceDialogOpen, closeNewServiceOfferedDialog } = useServiceOfferedDialog();
   const [activeTab, setActiveTab] = useState("sales");
+  
+  // Product from FinishedProducts page
+  const [productFromFinishedProducts, setProductFromFinishedProducts] = useState<{
+    batchId: string;
+    itemName: string;
+    itemsAvailable: number;
+    unitPrice: number;
+    supplier: string;
+  } | null>(null);
   
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -88,6 +101,25 @@ export default function Sales() {
       closeNewServiceOfferedDialog();
     }
   }, [globalServiceDialogOpen, closeNewServiceOfferedDialog]);
+
+  // Handle incoming product from FinishedProducts page
+  useEffect(() => {
+    const state = location.state as { productForSale?: {
+      batchId: string;
+      itemName: string;
+      itemsAvailable: number;
+      unitPrice: number;
+      supplier: string;
+    } } | null;
+    
+    if (state?.productForSale) {
+      setProductFromFinishedProducts(state.productForSale);
+      setIsNewSaleDialogOpen(true);
+      // Clear the navigation state
+      navigate(location.pathname, { replace: true, state: {} });
+      toast.info(`Creating sale for ${state.productForSale.itemName}`);
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Fetch sales and services offered from Firestore
   const fetchData = async () => {
@@ -748,8 +780,12 @@ export default function Sales() {
       {/* New Sale Dialog */}
       <NewSaleDialog
         isOpen={isNewSaleDialogOpen}
-        onClose={() => setIsNewSaleDialogOpen(false)}
+        onClose={() => {
+          setIsNewSaleDialogOpen(false);
+          setProductFromFinishedProducts(null);
+        }}
         onSaleAdded={fetchData}
+        finishedProductData={productFromFinishedProducts}
       />
 
       {/* Edit Sale Dialog */}

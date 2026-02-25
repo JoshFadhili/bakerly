@@ -19,6 +19,7 @@ import Sales from "./pages/Sales";
 import Products from "./pages/Products";
 import Inventory from "./pages/Inventory";
 import Purchases from "./pages/Purchases";
+import FinishedProducts from "./pages/FinishedProducts";
 import Expenses from "./pages/Expenses";
 import Finance from "./pages/Finance";
 import Reports from "./pages/Reports";
@@ -69,6 +70,11 @@ const App = () => (
                             <Route path="/purchases" element={
                               <ProtectedRoute>
                                 <Purchases />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/finished-products" element={
+                              <ProtectedRoute>
+                                <FinishedProducts />
                               </ProtectedRoute>
                             } />
                             <Route path="/expenses" element={

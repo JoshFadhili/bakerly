@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Menu,
   Box,
+  Cake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const menuItems = [
   { icon: Package, label: "Products & Services", path: "/products" },
   { icon: Warehouse, label: "Inventory", path: "/inventory" },
   { icon: Truck, label: "Purchases", path: "/purchases" },
+  { icon: Cake, label: "Finished Products", path: "/finished-products" },
   { icon: Receipt, label: "Expenses", path: "/expenses" },
   { icon: BarChart3, label: "Finance", path: "/finance" },
   { icon: FileText, label: "Reports", path: "/reports" },

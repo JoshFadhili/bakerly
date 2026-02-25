@@ -12,11 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Download, Eye, Edit, Plus, DollarSign } from "lucide-react";
-import { getBakingSupplyPurchases } from "@/services/bakingSupplyPurchaseService";
-import { BakingSupplyPurchase } from "@/types/bakingSupplyPurchase";
-import NewBakingSupplyPurchaseDialog from "@/components/purchases/NewBakingSupplyPurchaseDialog";
-import EditBakingSupplyPurchaseDialog from "@/components/purchases/EditBakingSupplyPurchaseDialog";
+import { Search, Filter, Download, Eye, Edit, Plus, Send, CheckCircle } from "lucide-react";
+import { getPurchases } from "@/services/purchaseService";
+import { Purchase } from "@/types/purchase";
+import NewPurchaseDialog from "@/components/purchases/NewPurchaseDialog";
+import EditPurchaseDialog from "@/components/purchases/EditPurchaseDialog";
 import {
   Dialog,
   DialogContent,
@@ -32,57 +32,70 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { usePurchaseDialog } from "@/contexts/PurchaseDialogContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-export default function Purchases() {
-  // Baking Supplies State
-  const [bakingSupplyPurchases, setBakingSupplyPurchases] = useState<BakingSupplyPurchase[]>([]);
+export default function FinishedProducts() {
+  const navigate = useNavigate();
+  
+  // Finished Products State
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isNewBakingSupplyPurchaseDialogOpen, setIsNewBakingSupplyPurchaseDialogOpen] = useState(false);
-  const [isViewBakingSupplyDialogOpen, setIsViewBakingSupplyDialogOpen] = useState(false);
-  const [isEditBakingSupplyDialogOpen, setIsEditBakingSupplyDialogOpen] = useState(false);
-  const [selectedBakingSupplyPurchase, setSelectedBakingSupplyPurchase] = useState<BakingSupplyPurchase | null>(null);
+  const [isNewPurchaseDialogOpen, setIsNewPurchaseDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
+  const { isNewPurchaseDialogOpen: globalDialogOpen, closeNewPurchaseDialog } = usePurchaseDialog();
+  
+  // Send to Sales Dialog State
+  const [isSendToSalesDialogOpen, setIsSendToSalesDialogOpen] = useState(false);
+  const [selectedProductForSale, setSelectedProductForSale] = useState<Purchase | null>(null);
 
-  // Filter states for Baking Supplies
+  // Filter states
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSupplier, setFilterSupplier] = useState<string>("");
-  const [filterPurpose, setFilterPurpose] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
   const [filterMinCost, setFilterMinCost] = useState<string>("");
   const [filterMaxCost, setFilterMaxCost] = useState<string>("");
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
-  // Fetch baking supply purchases from Firestore
-  const fetchBakingSupplyPurchases = async () => {
+  // Sync with global dialog state
+  useEffect(() => {
+    if (globalDialogOpen) {
+      setIsNewPurchaseDialogOpen(true);
+      closeNewPurchaseDialog();
+    }
+  }, [globalDialogOpen, closeNewPurchaseDialog]);
+
+  // Fetch purchases from Firestore
+  const fetchPurchases = async () => {
     try {
-      const purchasesList = await getBakingSupplyPurchases();
-      setBakingSupplyPurchases(sortByDateTimeDesc(purchasesList));
+      const purchasesList = await getPurchases();
+      setPurchases(sortByDateTimeDesc(purchasesList));
     } catch (error) {
-      console.error("Error fetching baking supply purchases:", error);
+      console.error("Error fetching purchases:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBakingSupplyPurchases();
+    fetchPurchases();
   }, []);
 
-  // Filter baking supply purchases based on search query and active filters
-  const filteredBakingSupplyPurchases = bakingSupplyPurchases.filter((purchase) => {
+  // Filter purchases based on search query and active filters
+  const filteredPurchases = purchases.filter((purchase) => {
     // Search filter
     const matchesSearch =
-      purchase.supplyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.category.toLowerCase().includes(searchQuery.toLowerCase());
+      purchase.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.supplier.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Status filter
     const matchesStatus = filterStatus === "all" || purchase.status === filterStatus;
-
-    // Purpose filter
-    const matchesPurpose = filterPurpose === "all" || purchase.purpose === filterPurpose;
 
     // Supplier filter
     const matchesSupplier = filterSupplier === "" || purchase.supplier.toLowerCase().includes(filterSupplier.toLowerCase());
@@ -100,7 +113,7 @@ export default function Purchases() {
       (filterMinCost === "" || purchase.totalCost >= Number(filterMinCost)) &&
       (filterMaxCost === "" || purchase.totalCost <= Number(filterMaxCost));
 
-    return matchesSearch && matchesStatus && matchesPurpose && matchesSupplier && matchesMonth && matchesYear && matchesCost;
+    return matchesSearch && matchesStatus && matchesSupplier && matchesMonth && matchesYear && matchesCost;
   }).sort((a, b) => {
     const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
     const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
@@ -119,52 +132,47 @@ export default function Purchases() {
     setHasActiveFilters(
       filterStatus !== "all" ||
       filterSupplier !== "" ||
-      filterPurpose !== "all" ||
       filterMonth !== "all" ||
       filterYear !== "all" ||
       filterMinCost !== "" ||
       filterMaxCost !== ""
     );
-  }, [filterStatus, filterSupplier, filterPurpose, filterMonth, filterYear, filterMinCost, filterMaxCost]);
+  }, [filterStatus, filterSupplier, filterMonth, filterYear, filterMinCost, filterMaxCost]);
 
   // Clear all filters
   const clearFilters = () => {
     setFilterStatus("all");
     setFilterSupplier("");
-    setFilterPurpose("all");
     setFilterMonth("all");
     setFilterYear("all");
     setFilterMinCost("");
     setFilterMaxCost("");
   };
 
-  // Get unique years from baking supply purchases
+  // Get unique years from purchases
   const getAvailableYears = () => {
     const years = new Set(
-      bakingSupplyPurchases.map((purchase) => 
+      purchases.map((purchase) => 
         purchase.date instanceof Date ? purchase.date.getFullYear() : new Date(purchase.date).getFullYear()
       )
     );
     return Array.from(years).sort((a, b) => b - a);
   };
 
-  // Export to CSV for baking supplies
+  // Export to CSV
   const exportToCSV = () => {
-    const headers = ["Date", "Time", "Supply Name", "Category", "Supplier", "Quantity", "Unit", "Unit Price", "Total Cost", "Purpose", "Status"];
+    const headers = ["Date", "Time", "Item Name", "Supplier", "Items", "Item Price", "Total Cost", "Status"];
     const csvContent = [
       headers.join(","),
-      ...filteredBakingSupplyPurchases.map((purchase) =>
+      ...filteredPurchases.map((purchase) =>
         [
           purchase.date.toISOString().split('T')[0],
           purchase.time || "",
-          purchase.supplyName,
-          purchase.category,
+          purchase.itemName,
           purchase.supplier,
-          purchase.quantity,
-          purchase.unit,
-          purchase.unitPrice,
+          purchase.items,
+          purchase.itemPrice,
           purchase.totalCost,
-          purchase.purpose,
           purchase.status,
         ].join(",")
       ),
@@ -174,48 +182,84 @@ export default function Purchases() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `baking_supply_purchases_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `finished_products_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // View baking supply purchase details
-  const viewBakingSupplyPurchase = (purchase: BakingSupplyPurchase) => {
-    setSelectedBakingSupplyPurchase(purchase);
-    setIsViewBakingSupplyDialogOpen(true);
+  // View purchase details
+  const viewPurchase = (purchase: Purchase) => {
+    setSelectedPurchase(purchase);
+    setIsViewDialogOpen(true);
   };
 
-  // Edit baking supply purchase
-  const editBakingSupplyPurchase = (purchase: BakingSupplyPurchase) => {
-    setSelectedBakingSupplyPurchase(purchase);
-    setIsEditBakingSupplyDialogOpen(true);
+  // Edit purchase
+  const editPurchase = (purchase: Purchase) => {
+    setSelectedPurchase(purchase);
+    setIsEditDialogOpen(true);
   };
 
-  // Calculate summary stats for baking supplies
-  const totalBakingSupplyPurchases = bakingSupplyPurchases.length;
-  const receivedBakingSupplyPurchases = bakingSupplyPurchases.filter((p) => p.status === "received").length;
-  const pendingBakingSupplyPurchases = bakingSupplyPurchases.filter((p) => p.status === "pending").length;
-  const totalBakingSupplyCost = bakingSupplyPurchases.reduce((acc, p) => acc + p.totalCost, 0);
+  // Send to Sales - open dialog
+  const openSendToSalesDialog = (purchase: Purchase) => {
+    if (purchase.status !== "received") {
+      toast.error("Only received products can be sent to sales");
+      return;
+    }
+    if (purchase.itemsRemaining <= 0) {
+      toast.error("No items remaining in this batch");
+      return;
+    }
+    setSelectedProductForSale(purchase);
+    setIsSendToSalesDialogOpen(true);
+  };
+
+  // Send to Sales - confirm action
+  const confirmSendToSales = () => {
+    if (selectedProductForSale) {
+      // Navigate to sales page with product data
+      navigate("/sales", { 
+        state: { 
+          productForSale: {
+            batchId: selectedProductForSale.batchId,
+            itemName: selectedProductForSale.itemName,
+            itemsAvailable: selectedProductForSale.itemsRemaining,
+            unitPrice: selectedProductForSale.itemPrice,
+            supplier: selectedProductForSale.supplier,
+          }
+        }
+      });
+      toast.success("Navigating to sales page to create sale");
+    }
+    setIsSendToSalesDialogOpen(false);
+    setSelectedProductForSale(null);
+  };
+
+  // Calculate summary stats
+  const totalPurchases = purchases.length;
+  const receivedPurchases = purchases.filter((p) => p.status === "received").length;
+  const pendingPurchases = purchases.filter((p) => p.status === "pending").length;
+  const totalCost = purchases.reduce((acc, p) => acc + p.totalCost, 0);
+  const availableForSale = purchases.filter((p) => p.status === "received" && p.itemsRemaining > 0).length;
 
   return (
-    <ERPLayout title="Purchases" subtitle="Track baking supply purchases and supplier orders">
+    <ERPLayout title="Finished Products" subtitle="Manage finished cakes and products ready for sale">
       {/* Summary Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-erp-blue">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Total Purchases</p>
+            <p className="text-sm text-muted-foreground">Total Products</p>
             <p className="text-2xl font-bold">
-              {totalBakingSupplyPurchases}
+              {totalPurchases}
             </p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-erp-green">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Received Orders</p>
+            <p className="text-sm text-muted-foreground">Available for Sale</p>
             <p className="text-2xl font-bold">
-              {receivedBakingSupplyPurchases}
+              {availableForSale}
             </p>
           </CardContent>
         </Card>
@@ -223,69 +267,28 @@ export default function Purchases() {
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Pending Orders</p>
             <p className="text-2xl font-bold">
-              {pendingBakingSupplyPurchases}
+              {pendingPurchases}
             </p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-purple-500">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-purple-500" />
-              <p className="text-sm text-muted-foreground">Total Amount Spent</p>
-            </div>
-            <p className="text-2xl font-bold mt-2">
-              KSh {totalBakingSupplyCost.toLocaleString()}
+            <p className="text-sm text-muted-foreground">Total Value</p>
+            <p className="text-2xl font-bold">
+              KSh {totalCost.toLocaleString()}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Breakdown by Purpose */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Baking Supplies by Purpose</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">For Resale</p>
-              <p className="text-xl font-bold">
-                KSh {bakingSupplyPurchases.filter(p => p.purpose === "resale").reduce((acc, p) => acc + p.totalCost, 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {bakingSupplyPurchases.filter(p => p.purpose === "resale").length} purchases
-              </p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">For Production</p>
-              <p className="text-xl font-bold">
-                KSh {bakingSupplyPurchases.filter(p => p.purpose === "production").reduce((acc, p) => acc + p.totalCost, 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {bakingSupplyPurchases.filter(p => p.purpose === "production").length} purchases
-              </p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">For Both</p>
-              <p className="text-xl font-bold">
-                KSh {bakingSupplyPurchases.filter(p => p.purpose === "both").reduce((acc, p) => acc + p.totalCost, 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {bakingSupplyPurchases.filter(p => p.purpose === "both").length} purchases
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-lg font-semibold">Baking Supplies Purchase Orders</CardTitle>
+          <CardTitle className="text-lg font-semibold">Finished Products Inventory</CardTitle>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search baking supplies..."
+                placeholder="Search products..."
                 className="w-full pl-9 sm:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -308,9 +311,9 @@ export default function Purchases() {
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Export</span>
               </Button>
-              <Button variant="success" size="sm" onClick={() => setIsNewBakingSupplyPurchaseDialogOpen(true)}>
+              <Button variant="success" size="sm" onClick={() => setIsNewPurchaseDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">New Purchase</span>
+                <span className="hidden sm:inline">New Product</span>
               </Button>
             </div>
           </div>
@@ -332,22 +335,6 @@ export default function Purchases() {
                     <SelectItem value="received">Received</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Purpose Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Purpose</label>
-                <Select value={filterPurpose} onValueChange={setFilterPurpose}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All purposes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Purposes</SelectItem>
-                    <SelectItem value="resale">Resale</SelectItem>
-                    <SelectItem value="production">Production</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -438,12 +425,12 @@ export default function Purchases() {
 
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading baking supply purchases...</p>
-          ) : filteredBakingSupplyPurchases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Loading finished products...</p>
+          ) : filteredPurchases.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No baking supply purchases found</p>
-              <Button onClick={() => setIsNewBakingSupplyPurchaseDialogOpen(true)}>
-                Create your first baking supply purchase
+              <p className="text-muted-foreground mb-4">No finished products found</p>
+              <Button onClick={() => setIsNewPurchaseDialogOpen(true)}>
+                Create your first finished product
               </Button>
             </div>
           ) : (
@@ -453,20 +440,18 @@ export default function Purchases() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Time</TableHead>
-                    <TableHead>Supply Name</TableHead>
-                    <TableHead className="hidden sm:table-cell">Category</TableHead>
+                    <TableHead>Item Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Supplier</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead className="hidden md:table-cell">Unit</TableHead>
-                    <TableHead className="hidden md:table-cell">Unit Price</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead className="hidden md:table-cell">Remaining</TableHead>
+                    <TableHead className="hidden md:table-cell">Item Price</TableHead>
                     <TableHead>Total Cost</TableHead>
-                    <TableHead className="hidden lg:table-cell">Purpose</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBakingSupplyPurchases.map((purchase) => (
+                  {filteredPurchases.map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="font-medium">
                         {purchase.date instanceof Date
@@ -474,26 +459,20 @@ export default function Purchases() {
                           : new Date(purchase.date).toLocaleDateString()}
                       </TableCell>
                       <TableCell>{purchase.time || ""}</TableCell>
-                      <TableCell>{purchase.supplyName}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {purchase.category}
-                      </TableCell>
+                      <TableCell>{purchase.itemName}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {purchase.supplier}
                       </TableCell>
-                      <TableCell>{purchase.quantity}</TableCell>
+                      <TableCell>{purchase.items}</TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {purchase.unit}
+                        <span className={purchase.itemsRemaining <= 0 ? "text-red-500 font-medium" : ""}>
+                          {purchase.itemsRemaining}
+                        </span>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        KSh {purchase.unitPrice.toLocaleString()}
+                        KSh {purchase.itemPrice.toLocaleString()}
                       </TableCell>
                       <TableCell>KSh {purchase.totalCost.toLocaleString()}</TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <Badge variant="outline">
-                          {purchase.purpose}
-                        </Badge>
-                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -515,17 +494,30 @@ export default function Purchases() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => viewBakingSupplyPurchase(purchase)}
+                            onClick={() => viewPurchase(purchase)}
+                            title="View details"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => editBakingSupplyPurchase(purchase)}
+                            onClick={() => editPurchase(purchase)}
+                            title="Edit"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {purchase.status === "received" && purchase.itemsRemaining > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openSendToSalesDialog(purchase)}
+                              title="Send to Sales"
+                              className="text-erp-green hover:text-erp-green hover:bg-erp-green/10"
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -537,94 +529,136 @@ export default function Purchases() {
         </CardContent>
       </Card>
 
-      {/* New Baking Supply Purchase Dialog */}
-      <NewBakingSupplyPurchaseDialog
-        isOpen={isNewBakingSupplyPurchaseDialogOpen}
-        onClose={() => setIsNewBakingSupplyPurchaseDialogOpen(false)}
-        onPurchaseAdded={fetchBakingSupplyPurchases}
+      {/* New Purchase Dialog */}
+      <NewPurchaseDialog
+        isOpen={isNewPurchaseDialogOpen}
+        onClose={() => setIsNewPurchaseDialogOpen(false)}
+        onPurchaseAdded={fetchPurchases}
       />
 
-      {/* Edit Baking Supply Purchase Dialog */}
-      <EditBakingSupplyPurchaseDialog
-        isOpen={isEditBakingSupplyDialogOpen}
-        onClose={() => setIsEditBakingSupplyDialogOpen(false)}
-        onPurchaseUpdated={fetchBakingSupplyPurchases}
-        purchase={selectedBakingSupplyPurchase}
+      {/* Edit Purchase Dialog */}
+      <EditPurchaseDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onPurchaseUpdated={fetchPurchases}
+        purchase={selectedPurchase}
       />
 
-      {/* View Baking Supply Purchase Details Dialog */}
-      <Dialog open={isViewBakingSupplyDialogOpen} onOpenChange={setIsViewBakingSupplyDialogOpen}>
+      {/* View Purchase Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Baking Supply Purchase Details</DialogTitle>
+            <DialogTitle>Finished Product Details</DialogTitle>
           </DialogHeader>
-          {selectedBakingSupplyPurchase && (
+          {selectedPurchase && (
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date:</span>
                 <span className="font-medium">
-                  {selectedBakingSupplyPurchase.date instanceof Date
-                    ? selectedBakingSupplyPurchase.date.toLocaleDateString()
-                    : new Date(selectedBakingSupplyPurchase.date).toLocaleDateString()}
+                  {selectedPurchase.date instanceof Date
+                    ? selectedPurchase.date.toLocaleDateString()
+                    : new Date(selectedPurchase.date).toLocaleDateString()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Time:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.time || ""}</span>
+                <span className="font-medium">{selectedPurchase.time || ""}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Batch ID:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.batchId || ""}</span>
+                <span className="font-medium">{selectedPurchase.batchId || ""}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Supply Name:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.supplyName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Category:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.category}</span>
+                <span className="text-muted-foreground">Item Name:</span>
+                <span className="font-medium">{selectedPurchase.itemName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Supplier:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.supplier}</span>
+                <span className="font-medium">{selectedPurchase.supplier}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Quantity:</span>
-                <span className="font-medium">{selectedBakingSupplyPurchase.quantity} {selectedBakingSupplyPurchase.unit}</span>
+                <span className="text-muted-foreground">Total Items:</span>
+                <span className="font-medium">{selectedPurchase.items}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Price:</span>
-                <span className="font-medium">KSh {selectedBakingSupplyPurchase.unitPrice.toLocaleString()}</span>
+                <span className="text-muted-foreground">Items Remaining:</span>
+                <span className="font-medium">{selectedPurchase.itemsRemaining}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Item Price:</span>
+                <span className="font-medium">KSh {selectedPurchase.itemPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Cost:</span>
-                <span className="font-medium">KSh {selectedBakingSupplyPurchase.totalCost.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Purpose:</span>
-                <Badge variant="outline">{selectedBakingSupplyPurchase.purpose}</Badge>
+                <span className="font-medium">KSh {selectedPurchase.totalCost.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Status:</span>
                 <Badge
                   variant={
-                    selectedBakingSupplyPurchase.status === "received" ? "default" : "secondary"
+                    selectedPurchase.status === "received" ? "default" : "secondary"
                   }
                   className={
-                    selectedBakingSupplyPurchase.status === "received"
+                    selectedPurchase.status === "received"
                       ? "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
-                      : selectedBakingSupplyPurchase.status === "pending"
+                      : selectedPurchase.status === "pending"
                       ? "bg-erp-orange/10 text-erp-orange hover:bg-erp-orange/20"
                       : "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
                   }
                 >
-                  {selectedBakingSupplyPurchase.status}
+                  {selectedPurchase.status}
                 </Badge>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => setIsViewBakingSupplyDialogOpen(false)}>Close</Button>
+            <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send to Sales Confirmation Dialog */}
+      <Dialog open={isSendToSalesDialogOpen} onOpenChange={setIsSendToSalesDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send to Sales</DialogTitle>
+          </DialogHeader>
+          {selectedProductForSale && (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Are you sure you want to create a sale for this finished product?
+              </p>
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Product:</span>
+                  <span className="font-medium">{selectedProductForSale.itemName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Batch ID:</span>
+                  <span className="font-medium">{selectedProductForSale.batchId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Available Items:</span>
+                  <span className="font-medium">{selectedProductForSale.itemsRemaining}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Unit Price:</span>
+                  <span className="font-medium">KSh {selectedProductForSale.itemPrice.toLocaleString()}</span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                You will be redirected to the Sales page to complete the sale.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsSendToSalesDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSendToSales} className="bg-erp-green hover:bg-erp-green/90">
+              <Send className="h-4 w-4 mr-2" />
+              Go to Sales
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

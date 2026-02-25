@@ -15,7 +15,7 @@ The Admin Controls feature has been successfully added to your application with 
    - New "Admin Controls" tab
    - 10 deletion buttons for different collections
    - Password confirmation dialog
-   - Email validation for smwaindirangu76@gmail.com
+   - Email validation for joshamani77@gmail.com
 
 3. **Deletion Functions Available**:
    - Delete Depleted Batches (batches with 0 remaining items)
@@ -55,12 +55,12 @@ The Admin Controls feature has been successfully added to your application with 
 
 ### Step 3: Set Up the Admin Account
 
-You need to ensure the admin account `smwaindirangu76@gmail.com` exists and has both Google OAuth AND Email/Password authentication enabled.
+You need to ensure the admin account `joshamani77@gmail.com` exists and has both Google OAuth AND Email/Password authentication enabled.
 
 #### Option A: If the User Already Exists
 
 1. Go to **Authentication** → **Users** in Firebase Console
-2. Find the user with email `smwaindirangu76@gmail.com`
+2. Find the user with email `joshamani77@gmail.com`
 3. Click on the user to view details
 4. Check the **Sign-in providers** section
 5. If only **Google** is listed, you need to add a password:
@@ -76,7 +76,7 @@ You need to ensure the admin account `smwaindirangu76@gmail.com` exists and has 
 1. Go to **Authentication** → **Users** in Firebase Console
 2. Click **Add user**
 3. Enter:
-   - **Email**: `smwaindirangu76@gmail.com`
+   - **Email**: `joshamani77@gmail.com`
    - **Password**: [Set a strong password]
    - **Phone number**: (Optional)
 4. Click **Add user**
@@ -139,7 +139,7 @@ service cloud.firestore {
 ### Test 1: Verify Admin Account Setup
 
 1. Sign out of your application
-2. Sign in with `smwaindirangu76@gmail.com` using Google OAuth
+2. Sign in with `joshamani77@gmail.com` using Google OAuth
 3. Navigate to Settings → Security
 4. Verify you can change the password (this confirms Email/Password auth is linked)
 
@@ -161,7 +161,7 @@ service cloud.firestore {
 
 ### Test 4: Test Email Authorization
 
-1. Sign in with a different account (not smwaindirangu76@gmail.com)
+1. Sign in with a different account (not joshamani77@gmail.com)
 2. Navigate to Settings → Admin Controls
 3. Click a deletion button
 4. Enter any password
@@ -179,16 +179,16 @@ service cloud.firestore {
 **Solution**:
 
 - Sign out and sign back in
-- Ensure you're logged in as `smwaindirangu76@gmail.com`
+- Ensure you're logged in as `joshamani77@gmail.com`
 
 ### Issue: "You are not authorized to perform admin actions" error
 
-**Cause**: The logged-in user is not `smwaindirangu76@gmail.com`.
+**Cause**: The logged-in user is not `joshamani77@gmail.com`.
 
 **Solution**:
 
-- Sign out and sign in with `smwaindirangu76@gmail.com`
-- Verify the email is exactly `smwaindirangu76@gmail.com` (case-sensitive)
+- Sign out and sign in with `joshamani77@gmail.com`
+- Verify the email is exactly `joshamani77@gmail.com` (case-sensitive)
 
 ### Issue: "Invalid password" error
 
@@ -298,7 +298,7 @@ sequenceDiagram
 
 1. ✅ Enable **Email/Password** authentication in Firebase Console
 2. ✅ Ensure **Google** authentication is enabled
-3. ✅ Set up the `smwaindirangu76@gmail.com` account with both Google OAuth and Email/Password
+3. ✅ Set up the `joshamani77@gmail.com` account with both Google OAuth and Email/Password
 4. ✅ Verify all Firestore collections exist
 5. ✅ (Optional) Update security rules
 

@@ -45,12 +45,21 @@ import {
   deleteService,
 } from "@/services/serviceService";
 
+// 🔥 Baking Supplies
+import {
+  addBakingSupply,
+  getBakingSupplies,
+  updateBakingSupply,
+  deleteBakingSupply,
+} from "@/services/bakingSupplyService";
+
 // 🔥 Inventory
 import { getInventory } from "@/services/inventoryService";
 
 // 🧩 Types
 import { Product } from "@/types/product";
 import { Service } from "@/types/service";
+import { BakingSupply } from "@/types/bakingSupply";
 import { InventoryItem } from "@/types/inventory";
 
 // 🧩 Dialog (modal)
@@ -69,20 +78,23 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [bakingSupplies, setBakingSupplies] = useState<BakingSupply[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state
   const [isOpen, setIsOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isBakingSupplyModalOpen, setIsBakingSupplyModalOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
 
   // 🧠 Edit state
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingBakingSupply, setEditingBakingSupply] = useState<BakingSupply | null>(null);
 
   // 🗑️ Delete state
-  const [deleteTarget, setDeleteTarget] = useState<Product | Service | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | Service | BakingSupply | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -98,12 +110,22 @@ export default function Products() {
     price: "",
   });
 
+  // Baking supply form state
+  const [bakingSupplyFormData, setBakingSupplyFormData] = useState({
+    name: "",
+    category: "",
+    salePrice: "",
+    quantity: "",
+    unit: "",
+  });
+
   // 🔹 Tabs state
-  const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
+  const [activeTab, setActiveTab] = useState<"goods" | "services" | "baking_supplies">("goods");
 
   // 🔹 Categories state
   const [goodsCategories, setGoodsCategories] = useState<any[]>([]);
   const [servicesCategories, setServicesCategories] = useState<any[]>([]);
+  const [bakingSuppliesCategories, setBakingSuppliesCategories] = useState<any[]>([]);
 
   // 🔹 Helper function to get inventory status for a product
   const getInventoryStatus = (productName: string): { status: "active" | "low_stock" | "out_of_stock"; stock?: number } => {
@@ -118,14 +140,16 @@ export default function Products() {
     };
   };
 
-  // 🔹 Fetch products and services
+  // 🔹 Fetch products, services, and baking supplies
   const fetchProducts = async () => {
     try {
-      const [productsList, goodsCategoryList, servicesCategoryList, servicesList, inventoryList] = await Promise.all([
+      const [productsList, goodsCategoryList, servicesCategoryList, servicesList, bakingSuppliesList, bakingSuppliesCategoryList, inventoryList] = await Promise.all([
         getProducts(),
         getCategories("goods"),
         getCategories("services"),
         getServices(),
+        getBakingSupplies(),
+        getCategories("baking_supplies"),
         getInventory(),
       ]);
 
@@ -133,6 +157,8 @@ export default function Products() {
       setGoodsCategories(goodsCategoryList);
       setServicesCategories(servicesCategoryList);
       setServices(servicesList);
+      setBakingSupplies(bakingSuppliesList);
+      setBakingSuppliesCategories(bakingSuppliesCategoryList);
       setInventory(inventoryList);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -213,12 +239,59 @@ export default function Products() {
     resetServiceAndReload();
   };
 
+  // 🧹 Reset baking supply & reload
+  const resetBakingSupplyAndReload = () => {
+    setBakingSupplyFormData({
+      name: "",
+      category: "",
+      salePrice: "",
+      quantity: "",
+      unit: "",
+    });
+    setEditingBakingSupply(null);
+    setIsBakingSupplyModalOpen(false);
+    setLoading(true);
+    fetchProducts();
+  };
+
+  // ➕ ADD BAKING SUPPLY
+  const handleAddBakingSupply = async () => {
+    await addBakingSupply({
+      name: bakingSupplyFormData.name,
+      category: bakingSupplyFormData.category,
+      salePrice: Number(bakingSupplyFormData.salePrice),
+      quantity: Number(bakingSupplyFormData.quantity),
+      unit: bakingSupplyFormData.unit,
+      status: "in_stock",
+      createdAt: new Date(),
+    });
+
+    resetBakingSupplyAndReload();
+  };
+
+  // ✏️ UPDATE BAKING SUPPLY
+  const handleUpdateBakingSupply = async () => {
+    if (!editingBakingSupply) return;
+
+    await updateBakingSupply(editingBakingSupply.id, {
+      name: bakingSupplyFormData.name,
+      category: bakingSupplyFormData.category,
+      salePrice: Number(bakingSupplyFormData.salePrice),
+      quantity: Number(bakingSupplyFormData.quantity),
+      unit: bakingSupplyFormData.unit,
+    });
+
+    resetBakingSupplyAndReload();
+  };
+
   // 🗑️ CONFIRM DELETE
   const handleDeleteProduct = async () => {
     if (!deleteTarget) return;
 
     if (activeTab === "services") {
       await deleteService(deleteTarget.id);
+    } else if (activeTab === "baking_supplies") {
+      await deleteBakingSupply(deleteTarget.id);
     } else {
       await deleteProduct(deleteTarget.id);
     }
@@ -276,6 +349,19 @@ export default function Products() {
     setIsServiceModalOpen(true);
   };
 
+  // 🖊️ Open Edit baking supply modal
+  const openEditBakingSupplyModal = (bakingSupply: BakingSupply) => {
+    setEditingBakingSupply(bakingSupply);
+    setBakingSupplyFormData({
+      name: bakingSupply.name,
+      category: bakingSupply.category,
+      salePrice: bakingSupply.salePrice.toString(),
+      quantity: bakingSupply.quantity.toString(),
+      unit: bakingSupply.unit,
+    });
+    setIsBakingSupplyModalOpen(true);
+  };
+
   // 🔍 Search filter
   const filteredProducts = products.filter((product) =>
     product.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -285,21 +371,26 @@ export default function Products() {
     service.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredBakingSupplies = bakingSupplies.filter((bakingSupply) =>
+    bakingSupply.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <ERPLayout
-      title="Products & Services"
+      title="Products, Services and Baking Supplies"
       subtitle="Manage your product catalog"
     >
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <Tabs
-            value={activeTab as "goods" | "services"}
-            onValueChange={(value: "goods" | "services") => setActiveTab(value)}
+            value={activeTab as "goods" | "services" | "baking_supplies"}
+            onValueChange={(value: "goods" | "services" | "baking_supplies") => setActiveTab(value)}
             className="w-full sm:w-auto"
           >
             <TabsList>
               <TabsTrigger value="goods" asChild={false}>Goods</TabsTrigger>
               <TabsTrigger value="services" asChild={false}>Services</TabsTrigger>
+              <TabsTrigger value="baking_supplies" asChild={false}>Baking Supplies</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -307,7 +398,13 @@ export default function Products() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={activeTab === "services" ? "Search services..." : "Search products..."}
+                placeholder={
+                  activeTab === "services"
+                    ? "Search services..."
+                    : activeTab === "baking_supplies"
+                    ? "Search baking supplies..."
+                    : "Search products..."
+                }
                 className="w-full pl-9 sm:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -330,6 +427,9 @@ export default function Products() {
                 if (activeTab === "services") {
                   setEditingService(null);
                   setIsServiceModalOpen(true);
+                } else if (activeTab === "baking_supplies") {
+                  setEditingBakingSupply(null);
+                  setIsBakingSupplyModalOpen(true);
                 } else {
                   setEditingProduct(null);
                   setIsOpen(true);
@@ -337,7 +437,7 @@ export default function Products() {
               }}
             >
               <Plus className="h-4 w-4" />
-              {activeTab === "services" ? "Add Service" : "Add Product"}
+              {activeTab === "services" ? "Add Service" : activeTab === "baking_supplies" ? "Add Baking Supply" : "Add Product"}
             </Button>
           </div>
         </CardHeader>
@@ -401,6 +501,88 @@ export default function Products() {
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteTarget(service)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : activeTab === "baking_supplies" ? (
+            /* ================= BAKING SUPPLIES TABLE ================= */
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Supply Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      Category
+                    </TableHead>
+                    <TableHead>Sale Price</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead className="hidden sm:table-cell">Unit</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {filteredBakingSupplies.map((bakingSupply) => (
+                    <TableRow key={bakingSupply.id}>
+                      <TableCell className="font-medium">
+                        {bakingSupply.name}
+                      </TableCell>
+
+                      <TableCell className="hidden sm:table-cell">
+                        {bakingSupply.category}
+                      </TableCell>
+
+                      <TableCell>
+                        KSh {Number(bakingSupply.salePrice).toLocaleString()}
+                      </TableCell>
+
+                      <TableCell>
+                        {bakingSupply.quantity}
+                      </TableCell>
+
+                      <TableCell className="hidden sm:table-cell">
+                        {bakingSupply.unit}
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge
+                          className={
+                            bakingSupply.status === "in_stock"
+                              ? "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
+                              : bakingSupply.status === "low_stock"
+                              ? "bg-erp-yellow/10 text-erp-yellow hover:bg-erp-yellow/20"
+                              : "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
+                          }
+                        >
+                          {bakingSupply.status === "in_stock"
+                            ? "In Stock"
+                            : bakingSupply.status === "low_stock"
+                            ? "Low Stock"
+                            : "Out of Stock"}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditBakingSupplyModal(bakingSupply)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(bakingSupply)}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -619,6 +801,101 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
+      {/* ➕ / ✏️ Add/Edit Baking Supply Modal */}
+      <Dialog open={isBakingSupplyModalOpen} onOpenChange={setIsBakingSupplyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingBakingSupply ? "Edit Baking Supply" : "Add New Baking Supply"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Supply Name */}
+            <div className="space-y-2">
+              <Label htmlFor="bakingSupplyName">Supply Name</Label>
+              <Input
+                id="bakingSupplyName"
+                name="name"
+                placeholder="Enter supply name"
+                value={bakingSupplyFormData.name}
+                onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, name: e.target.value })}
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label htmlFor="bakingSupplyCategory">Category</Label>
+              <Select
+                value={bakingSupplyFormData.category}
+                onValueChange={(value) =>
+                  setBakingSupplyFormData({ ...bakingSupplyFormData, category: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bakingSuppliesCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sale Price */}
+            <div className="space-y-2">
+              <Label htmlFor="bakingSupplySalePrice">Sale Price (KSh)</Label>
+              <Input
+                id="bakingSupplySalePrice"
+                name="salePrice"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={bakingSupplyFormData.salePrice}
+                onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, salePrice: e.target.value })}
+              />
+            </div>
+
+            {/* Quantity */}
+            <div className="space-y-2">
+              <Label htmlFor="bakingSupplyQuantity">Quantity</Label>
+              <Input
+                id="bakingSupplyQuantity"
+                name="quantity"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={bakingSupplyFormData.quantity}
+                onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, quantity: e.target.value })}
+              />
+            </div>
+
+            {/* Unit */}
+            <div className="space-y-2">
+              <Label htmlFor="bakingSupplyUnit">Unit</Label>
+              <Input
+                id="bakingSupplyUnit"
+                name="unit"
+                placeholder="e.g., kg, liters, pieces"
+                value={bakingSupplyFormData.unit}
+                onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, unit: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={editingBakingSupply ? handleUpdateBakingSupply : handleAddBakingSupply}>
+              {editingBakingSupply ? "Save Changes" : "Save Baking Supply"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 🗑️ Delete Confirmation Dialog */}
       <Dialog
         open={!!deleteTarget}
@@ -626,7 +903,13 @@ export default function Products() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeTab === "services" ? "Delete Service" : "Delete Product"}</DialogTitle>
+            <DialogTitle>
+              {activeTab === "services"
+                ? "Delete Service"
+                : activeTab === "baking_supplies"
+                ? "Delete Baking Supply"
+                : "Delete Product"}
+            </DialogTitle>
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">

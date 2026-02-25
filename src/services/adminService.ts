@@ -18,8 +18,8 @@ export const verifyAdminPassword = async (password: string): Promise<boolean> =>
       throw new Error("No authenticated user found");
     }
 
-    // Check if the authenticated user is the admin (smwaindirangu76@gmail.com)
-    if (auth.currentUser.email !== "smwaindirangu76@gmail.com") {
+    // Check if the authenticated user is the admin (joshamani77@gmail.com)
+    if (auth.currentUser.email !== "joshamani77@gmail.com") {
       throw new Error("You are not authorized to perform admin actions");
     }
 

@@ -1,4 +1,4 @@
-export type CategoryType = "goods" | "categories" | "services";
+export type CategoryType = "goods" | "categories" | "services" | "baking_supplies";
 
 export interface Category {
   id: string;

@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { BakingSupplyPurchase } from "../types/bakingSupplyPurchase";
+import { getBakingSupplies } from "./bakingSupplyService";
 
 // 🔗 Collection reference
 const bakingSupplyPurchasesRef = collection(db, "bakingSupplyPurchases");
@@ -673,5 +674,93 @@ export const calculateAverageUnitPriceFromBatches = async (supplyName: string): 
   } catch (error) {
     console.error("Error calculating average unit price:", error);
     return 0;
+  }
+};
+
+// 🛒 GET BAKING SUPPLIES FOR SALE (only those with purpose = resale or both)
+// This interface represents a baking supply available for sale
+export interface BakingSupplyForSale {
+  supplyName: string;
+  category: string;
+  unit: string;
+  quantityAvailable: number;
+  salePrice: number; // Price per unit for resale
+  status: "in_stock" | "low_stock" | "out_of_stock";
+}
+
+// Get all baking supplies that can be sold (purpose is resale or both)
+export const getBakingSuppliesForSale = async (lowStockThreshold: number = 5): Promise<BakingSupplyForSale[]> => {
+  try {
+    // Get all received baking supply purchases
+    const allPurchases = await getBakingSupplyPurchases();
+    const receivedPurchases = allPurchases.filter(p => p.status === "received");
+    
+    // Filter to only include purchases with purpose = resale or both
+    const sellablePurchases = receivedPurchases.filter(p => 
+      p.purpose === "resale" || p.purpose === "both"
+    );
+    
+    // Get baking supplies master data for sale price
+    const bakingSupplies = await getBakingSupplies();
+    const bakingSupplyMap = new Map(bakingSupplies.map(s => [s.name.toLowerCase(), s]));
+    
+    // Group by supply name
+    const supplyMap = new Map<string, BakingSupplyPurchase[]>();
+    
+    for (const purchase of sellablePurchases) {
+      const existing = supplyMap.get(purchase.supplyName) || [];
+      existing.push(purchase);
+      supplyMap.set(purchase.supplyName, existing);
+    }
+    
+    // Calculate inventory for each supply
+    const sellableSupplies: BakingSupplyForSale[] = [];
+    
+    for (const [supplyName, purchases] of supplyMap) {
+      // Calculate total quantity remaining
+      const totalQuantityRemaining = purchases.reduce((sum, p) => {
+        return sum + (p.quantityRemaining !== undefined ? p.quantityRemaining : p.quantity);
+      }, 0);
+      
+      // Skip if no quantity available
+      if (totalQuantityRemaining <= 0) {
+        continue;
+      }
+      
+      // Calculate weighted average unit price for resale
+      const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+      const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0);
+      const avgUnitPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+      
+      // Get category and unit from first purchase
+      const firstPurchase = purchases[0];
+      
+      // Determine status
+      let status: "in_stock" | "low_stock" | "out_of_stock" = "in_stock";
+      if (totalQuantityRemaining === 0) {
+        status = "out_of_stock";
+      } else if (totalQuantityRemaining < lowStockThreshold) {
+        status = "low_stock";
+      }
+      
+      // Get sale price from baking supply master data, or calculate from purchase price
+      const bakingSupply = bakingSupplyMap.get(supplyName.toLowerCase());
+      const salePrice = bakingSupply?.salePrice ?? avgUnitPrice * 1.3; // Use master data price or 30% markup
+      
+      sellableSupplies.push({
+        supplyName,
+        category: firstPurchase.category || "Uncategorized",
+        unit: firstPurchase.unit || "units",
+        quantityAvailable: totalQuantityRemaining,
+        salePrice,
+        status,
+      });
+    }
+    
+    // Sort by name
+    return sellableSupplies.sort((a, b) => a.supplyName.localeCompare(b.supplyName));
+  } catch (error) {
+    console.error("Error getting baking supplies for sale:", error);
+    throw new Error("Failed to get baking supplies for sale. Please try again.");
   }
 };

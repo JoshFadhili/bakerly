@@ -48,6 +48,7 @@ import {
 } from "@/services/bakingSupplyPurchaseService";
 import BatchDetailsDialog from "@/components/inventory/BatchDetailsDialog";
 import BakingSupplyBatchDetailsDialog from "@/components/inventory/BakingSupplyBatchDetailsDialog";
+import AdjustBakingSupplyDialog from "@/components/inventory/AdjustBakingSupplyDialog";
 import { useSettings } from "@/contexts/SettingsContext";
 
 export default function Inventory() {
@@ -79,9 +80,11 @@ export default function Inventory() {
 
   // Modal states
   const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false);
+  const [isAdjustBakingSupplyOpen, setIsAdjustBakingSupplyOpen] = useState(false);
   const [isBatchDetailsOpen, setIsBatchDetailsOpen] = useState(false);
   const [isBakingSupplyBatchDetailsOpen, setIsBakingSupplyBatchDetailsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedBakingSupply, setSelectedBakingSupply] = useState<BakingSupplyInventoryItem | null>(null);
   const [selectedProductForBatches, setSelectedProductForBatches] = useState<string>("");
   const [selectedBakingSupplyForBatches, setSelectedBakingSupplyForBatches] = useState<string>("");
 
@@ -653,6 +656,20 @@ export default function Inventory() {
                   <Filter className="h-4 w-4 mr-2" />
                   More Filters
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (filteredBakingSupplies.length === 1) {
+                      setSelectedBakingSupply(filteredBakingSupplies[0]);
+                      setIsAdjustBakingSupplyOpen(true);
+                    }
+                  }}
+                  disabled={filteredBakingSupplies.length !== 1}
+                >
+                  <Edit className="h-4 w-4" />
+                  <span className="hidden sm:inline">Adjust Stock</span>
+                </Button>
                 <Button variant="outline" size="sm" onClick={exportBakingSuppliesToCSV}>
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">Export</span>
@@ -761,6 +778,16 @@ export default function Inventory() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedBakingSupply(supply);
+                                    setIsAdjustBakingSupplyOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -873,6 +900,19 @@ export default function Inventory() {
         isOpen={isBakingSupplyBatchDetailsOpen}
         onClose={() => setIsBakingSupplyBatchDetailsOpen(false)}
         supplyName={selectedBakingSupplyForBatches}
+      />
+
+      {/* Adjust Baking Supply Stock Dialog */}
+      <AdjustBakingSupplyDialog
+        isOpen={isAdjustBakingSupplyOpen}
+        onClose={() => {
+          setIsAdjustBakingSupplyOpen(false);
+          setSelectedBakingSupply(null);
+        }}
+        onStockAdjusted={() => {
+          fetchBakingSupplyInventory();
+        }}
+        supply={selectedBakingSupply}
       />
     </ERPLayout>
   );

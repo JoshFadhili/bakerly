@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Download, Eye, Edit, Plus, Send, CheckCircle } from "lucide-react";
 import { getPurchases } from "@/services/purchaseService";
+import { getProducts } from "@/services/productService";
 import { Purchase } from "@/types/purchase";
 import NewPurchaseDialog from "@/components/purchases/NewPurchaseDialog";
 import EditPurchaseDialog from "@/components/purchases/EditPurchaseDialog";
@@ -161,7 +162,7 @@ export default function FinishedProducts() {
 
   // Export to CSV
   const exportToCSV = () => {
-    const headers = ["Date", "Time", "Item Name", "Supplier", "Items", "Item Price", "Total Cost", "Status"];
+    const headers = ["Date", "Time", "Item Name", "Baker", "Items", "Production Cost", "Total Production Cost", "Status"];
     const csvContent = [
       headers.join(","),
       ...filteredPurchases.map((purchase) =>
@@ -216,8 +217,20 @@ export default function FinishedProducts() {
   };
 
   // Send to Sales - confirm action
-  const confirmSendToSales = () => {
+  const confirmSendToSales = async () => {
     if (selectedProductForSale) {
+      // Fetch products to get the sale price
+      let salePrice = selectedProductForSale.itemPrice; // Default to item price if product not found
+      try {
+        const products = await getProducts();
+        const product = products.find(p => p.name === selectedProductForSale.itemName);
+        if (product) {
+          salePrice = product.salePrice;
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+      
       // Navigate to sales page with product data
       navigate("/sales", { 
         state: { 
@@ -225,7 +238,7 @@ export default function FinishedProducts() {
             batchId: selectedProductForSale.batchId,
             itemName: selectedProductForSale.itemName,
             itemsAvailable: selectedProductForSale.itemsRemaining,
-            unitPrice: selectedProductForSale.itemPrice,
+            unitPrice: salePrice,
             supplier: selectedProductForSale.supplier,
           }
         }
@@ -341,9 +354,9 @@ export default function FinishedProducts() {
 
               {/* Supplier Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Supplier</label>
+                <label className="text-sm font-medium">Baker</label>
                 <Input
-                  placeholder="Search supplier..."
+                  placeholder="Search baker..."
                   value={filterSupplier}
                   onChange={(e) => setFilterSupplier(e.target.value)}
                 />
@@ -441,11 +454,11 @@ export default function FinishedProducts() {
                     <TableHead>Date</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Item Name</TableHead>
-                    <TableHead className="hidden sm:table-cell">Supplier</TableHead>
+                    <TableHead className="hidden sm:table-cell">Baker</TableHead>
                     <TableHead>Items</TableHead>
                     <TableHead className="hidden md:table-cell">Remaining</TableHead>
-                    <TableHead className="hidden md:table-cell">Item Price</TableHead>
-                    <TableHead>Total Cost</TableHead>
+                    <TableHead className="hidden md:table-cell">Production Cost</TableHead>
+                    <TableHead>Total Production Cost</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -573,7 +586,7 @@ export default function FinishedProducts() {
                 <span className="font-medium">{selectedPurchase.itemName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Supplier:</span>
+                <span className="text-muted-foreground">Baker:</span>
                 <span className="font-medium">{selectedPurchase.supplier}</span>
               </div>
               <div className="flex justify-between">

@@ -145,6 +145,7 @@ export default function Sales() {
   const totalSales = sales.length;
   const completedSales = sales.filter((s) => s.status === "completed").length;
   const pendingSales = sales.filter((s) => s.status === "pending").length;
+  const cancelledSales = sales.filter((s) => s.status === "cancelled").length;
   const totalSalesAmount = sales.reduce((acc, s) => acc + s.totalAmount, 0);
 
   // Calculate services statistics
@@ -368,7 +369,7 @@ export default function Sales() {
   return (
     <ERPLayout title="Sales" subtitle="Track and manage all sales transactions">
       {/* Summary Cards */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {activeTab === "sales" ? (
           <>
             <Card className="border-l-4 border-l-erp-blue">
@@ -387,6 +388,12 @@ export default function Sales() {
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Pending Sales</p>
                 <p className="text-2xl font-bold">{pendingSales}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-erp-red">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Cancelled Sales</p>
+                <p className="text-2xl font-bold">{cancelledSales}</p>
               </CardContent>
             </Card>
           </>

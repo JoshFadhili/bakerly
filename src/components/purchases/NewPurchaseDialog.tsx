@@ -545,14 +545,14 @@ onClose();
             </div>
           )}
 
-          {/* Supplier */}
+          {/* Baker */}
           <div className="space-y-2">
-            <Label htmlFor="supplier">Supplier</Label>
+            <Label htmlFor="baker">Baker</Label>
             <Input
-              id="supplier"
-              name="supplier"
+              id="baker"
+              name="baker"
               type="text"
-              placeholder="Enter supplier name"
+              placeholder="Enter baker name"
               value={formData.supplier}
               onChange={handleInputChange}
               autoComplete="off"
@@ -575,9 +575,9 @@ onClose();
             />
           </div>
   
-          {/* Item Price */}
+          {/* Production Cost */}
           <div className="space-y-2">
-            <Label htmlFor="itemPrice">Item Price (KSh)</Label>
+            <Label htmlFor="itemPrice">Production Cost (KSh)</Label>
             <Input
               id="itemPrice"
               name="itemPrice"
@@ -591,9 +591,9 @@ onClose();
             />
           </div>
 
-          {/* Total Cost */}
+          {/* Total Production Cost */}
           <div className="space-y-2">
-            <Label htmlFor="totalCost">Total Cost (KSh)</Label>
+            <Label htmlFor="totalCost">Total Production Cost (KSh)</Label>
             <Input
               id="totalCost"
               name="totalCost"

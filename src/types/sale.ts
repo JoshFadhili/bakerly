@@ -8,6 +8,7 @@ export interface Sale {
   payment: "Cash" | "M-Pesa" | "Card" | "Bank Transfer";
   status: "completed" | "pending" | "cancelled";
   customer?: string; // Optional customer name
+  itemType?: "product" | "bakingSupply"; // Type of item being sold
   createdAt: Date;
   updatedAt?: Date;
   cogs?: number; // Cost of Goods Sold (optional, calculated)

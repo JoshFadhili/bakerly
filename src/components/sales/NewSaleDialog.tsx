@@ -16,12 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getProducts, updateProduct } from "@/services/productService";
 import { Product } from "@/types/product";
 import { addSale } from "@/services/salesService";
 import { getInventory } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
-import { Search, Calendar, AlertCircle, Package, TrendingDown, Clock } from "lucide-react";
+import { getBakingSuppliesForSale, BakingSupplyForSale } from "@/services/bakingSupplyPurchaseService";
+import { Search, Calendar, AlertCircle, Package, TrendingDown, Clock, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -55,6 +57,11 @@ export default function NewSaleDialog({
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  
+  // Baking supplies state
+  const [bakingSupplies, setBakingSupplies] = useState<BakingSupplyForSale[]>([]);
+  const [filteredBakingSupplies, setFilteredBakingSupplies] = useState<BakingSupplyForSale[]>([]);
+  const [itemType, setItemType] = useState<"product" | "bakingSupply">("product");
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -68,12 +75,19 @@ export default function NewSaleDialog({
   });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedBakingSupply, setSelectedBakingSupply] = useState<BakingSupplyForSale | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Helper function to get stock for a product
   const getStockForProduct = (productName: string): number => {
     const inventoryItem = inventory.find(item => item.name === productName);
     return inventoryItem?.stock ?? 0;
+  };
+
+  // Helper function to get stock for a baking supply
+  const getStockForBakingSupply = (supplyName: string): number => {
+    const supply = bakingSupplies.find(s => s.supplyName === supplyName);
+    return supply?.quantityAvailable ?? 0;
   };
 
   // Check if stock is low
@@ -84,6 +98,17 @@ export default function NewSaleDialog({
   // Check if there's enough stock for the requested quantity
   const hasEnoughStock = (productName: string, quantity: number): boolean => {
     return getStockForProduct(productName) >= quantity;
+  };
+
+  // Check if baking supply stock is low
+  const isBakingSupplyLowStock = (supplyName: string): boolean => {
+    const supply = bakingSupplies.find(s => s.supplyName === supplyName);
+    return supply ? supply.status === "low_stock" : false;
+  };
+
+  // Check if there's enough baking supply stock
+  const hasEnoughBakingSupplyStock = (supplyName: string, quantity: number): boolean => {
+    return getStockForBakingSupply(supplyName) >= quantity;
   };
 
   // Calculate remaining stock after sale
@@ -110,13 +135,16 @@ export default function NewSaleDialog({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [productsList, inventoryList] = await Promise.all([
+        const [productsList, inventoryList, bakingSuppliesList] = await Promise.all([
           getProducts(),
           getInventory(),
+          getBakingSuppliesForSale(),
         ]);
         setProducts(productsList);
         setFilteredProducts(productsList);
         setInventory(inventoryList);
+        setBakingSupplies(bakingSuppliesList);
+        setFilteredBakingSupplies(bakingSuppliesList);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -175,6 +203,18 @@ export default function NewSaleDialog({
     }
   }, [searchQuery, products]);
 
+  // Filter baking supplies based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredBakingSupplies(bakingSupplies);
+    } else {
+      const filtered = bakingSupplies.filter((supply) =>
+        supply.supplyName.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredBakingSupplies(filtered);
+    }
+  }, [searchQuery, bakingSupplies]);
+
   // Auto-calculate total amount when product and quantity change
   useEffect(() => {
     if (selectedProduct && formData.items) {
@@ -183,17 +223,37 @@ export default function NewSaleDialog({
         ...prev,
         totalAmount: calculatedAmount.toString(),
       }));
+    } else if (selectedBakingSupply && formData.items) {
+      const calculatedAmount = selectedBakingSupply.salePrice * Number(formData.items);
+      setFormData((prev) => ({
+        ...prev,
+        totalAmount: calculatedAmount.toString(),
+      }));
     }
-  }, [selectedProduct, formData.items, formData.status]);
+  }, [selectedProduct, selectedBakingSupply, formData.items, formData.status]);
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
+    setSelectedBakingSupply(null);
     setFormData((prev) => ({
       ...prev,
       itemName: product.name,
       items: "1",
     }));
     setSearchQuery(product.name);
+    setShowDropdown(false);
+  };
+
+  const handleBakingSupplySelect = (supply: BakingSupplyForSale) => {
+    setSelectedBakingSupply(supply);
+    setSelectedProduct(null);
+    setFormData((prev) => ({
+      ...prev,
+      itemName: supply.supplyName,
+      items: "1",
+      totalAmount: supply.salePrice.toString(),
+    }));
+    setSearchQuery(supply.supplyName);
     setShowDropdown(false);
   };
 
@@ -213,15 +273,28 @@ export default function NewSaleDialog({
 
     try {
       // Stock validation for completed sales
-      if (formData.status === "completed" && !hasEnoughStock(formData.itemName, Number(formData.items))) {
-        const currentStock = getStockForProduct(formData.itemName);
-        toast({
-          variant: "destructive",
-          title: "Insufficient Stock",
-          description: `Available: ${currentStock}, Requested: ${formData.items}. Please restock before completing this sale.`,
-        });
-        setLoading(false);
-        return;
+      if (itemType === "product") {
+        if (formData.status === "completed" && !hasEnoughStock(formData.itemName, Number(formData.items))) {
+          const currentStock = getStockForProduct(formData.itemName);
+          toast({
+            variant: "destructive",
+            title: "Insufficient Stock",
+            description: `Available: ${currentStock}, Requested: ${formData.items}. Please restock before completing this sale.`,
+          });
+          setLoading(false);
+          return;
+        }
+      } else if (itemType === "bakingSupply") {
+        if (formData.status === "completed" && !hasEnoughBakingSupplyStock(formData.itemName, Number(formData.items))) {
+          const currentStock = getStockForBakingSupply(formData.itemName);
+          toast({
+            variant: "destructive",
+            title: "Insufficient Stock",
+            description: `Available: ${currentStock}, Requested: ${formData.items}. Please restock before completing this sale.`,
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       // Add the sale
@@ -233,6 +306,7 @@ export default function NewSaleDialog({
         totalAmount: Number(formData.totalAmount),
         payment: formData.payment,
         status: formData.status,
+        itemType: itemType, // "product" or "bakingSupply"
         createdAt: new Date(),
       };
       
@@ -255,8 +329,10 @@ export default function NewSaleDialog({
         customer: "",
       });
       setSelectedProduct(null);
+      setSelectedBakingSupply(null);
       setSearchQuery("");
       setShowDropdown(false);
+      setItemType("product");
 
       onClose();
       onSaleAdded();
@@ -318,14 +394,49 @@ export default function NewSaleDialog({
 
           {/* Product Name with Search */}
           <div className="space-y-2 relative">
-            <Label htmlFor="itemName">Product Name</Label>
+            <Label htmlFor="itemName">Item Name</Label>
+            
+            {/* Item Type Toggle */}
+            <div className="flex gap-2 mb-2">
+              <Button
+                type="button"
+                variant={itemType === "product" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setItemType("product");
+                  setSelectedBakingSupply(null);
+                  setSearchQuery("");
+                  setFormData((prev) => ({ ...prev, itemName: "", totalAmount: "" }));
+                }}
+                className="flex-1"
+              >
+                <Package className="h-4 w-4 mr-1" />
+                Finished Products
+              </Button>
+              <Button
+                type="button"
+                variant={itemType === "bakingSupply" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setItemType("bakingSupply");
+                  setSelectedProduct(null);
+                  setSearchQuery("");
+                  setFormData((prev) => ({ ...prev, itemName: "", totalAmount: "" }));
+                }}
+                className="flex-1"
+              >
+                <ShoppingBag className="h-4 w-4 mr-1" />
+                Baking Supplies
+              </Button>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="itemName"
                 name="itemName"
                 type="text"
-                placeholder="Search product..."
+                placeholder={itemType === "product" ? "Search product..." : "Search baking supply..."}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -338,89 +449,163 @@ export default function NewSaleDialog({
               />
             </div>
 
-            {/* Product Dropdown */}
+            {/* Product/Baking Supply Dropdown */}
             {showDropdown && (
               <div
                 ref={dropdownRef}
                 className="border rounded-md max-h-48 overflow-y-auto bg-background z-[100] shadow-lg absolute w-full"
               >
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => {
-                    const stock = getStockForProduct(product.name);
-                    const lowStock = isLowStock(product.name);
-                    return (
-                      <div
-                        key={product.id}
-                        className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
-                        onClick={() => {
-                          handleProductSelect(product);
-                        }}
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                {itemType === "product" ? (
+                  filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => {
+                      const stock = getStockForProduct(product.name);
+                      const lowStock = isLowStock(product.name);
+                      return (
+                        <div
+                          key={product.id}
+                          className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                          onClick={() => {
+                            handleProductSelect(product);
+                          }}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {product.category} • KSh {(product.salePrice ?? 0).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Package className="h-3 w-3" />
+                              <span className={lowStock ? "text-orange-500 font-medium" : ""}>
+                                {stock}
+                              </span>
+                            </div>
+                            {lowStock && (
+                              <TrendingDown className="h-3 w-3 text-orange-500" />
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 ml-2">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Package className="h-3 w-3" />
-                            <span className={lowStock ? "text-orange-500 font-medium" : ""}>
-                              {stock}
-                            </span>
-                          </div>
-                          {lowStock && (
-                            <TrendingDown className="h-3 w-3 text-orange-500" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No products found
+                    </div>
+                  )
                 ) : (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No products found
-                  </div>
+                  filteredBakingSupplies.length > 0 ? (
+                    filteredBakingSupplies.map((supply) => {
+                      const stock = getStockForBakingSupply(supply.supplyName);
+                      const lowStock = isBakingSupplyLowStock(supply.supplyName);
+                      return (
+                        <div
+                          key={supply.supplyName}
+                          className="px-3 py-2 hover:bg-accent cursor-pointer flex justify-between items-center"
+                          onClick={() => {
+                            handleBakingSupplySelect(supply);
+                          }}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{supply.supplyName}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {supply.category} • KSh {supply.salePrice.toLocaleString()}/{supply.unit}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Package className="h-3 w-3" />
+                              <span className={lowStock ? "text-orange-500 font-medium" : ""}>
+                                {stock} {supply.unit}
+                              </span>
+                            </div>
+                            {lowStock && (
+                              <TrendingDown className="h-3 w-3 text-orange-500" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No baking supplies available for sale
+                    </div>
+                  )
                 )}
               </div>
             )}
           </div>
 
           {/* Stock Warning */}
-          {selectedProduct && formData.status === "completed" && (
+          {(selectedProduct || selectedBakingSupply) && formData.status === "completed" && (
             <div className={`p-3 rounded-md border ${
-              isLowStock(selectedProduct.name)
+              (selectedProduct && isLowStock(selectedProduct.name)) || (selectedBakingSupply && isBakingSupplyLowStock(selectedBakingSupply.supplyName))
                 ? "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800"
                 : "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800"
             }`}>
               <div className="flex items-start gap-2">
                 <AlertCircle className={`h-4 w-4 mt-0.5 ${
-                  isLowStock(selectedProduct.name) ? "text-orange-500" : "text-blue-500"
+                  (selectedProduct && isLowStock(selectedProduct.name)) || (selectedBakingSupply && isBakingSupplyLowStock(selectedBakingSupply.supplyName))
+                    ? "text-orange-500" : "text-blue-500"
                 }`} />
                 <div className="flex-1">
                   <p className={`text-sm font-medium ${
-                    isLowStock(selectedProduct.name) ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
+                    (selectedProduct && isLowStock(selectedProduct.name)) || (selectedBakingSupply && isBakingSupplyLowStock(selectedBakingSupply.supplyName))
+                      ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
                   }`}>
                     Stock Information
                   </p>
-                  <p className={`text-xs mt-1 ${
-                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
-                  }`}>
-                    Available Stock: <span className="font-semibold">{getStockForProduct(selectedProduct.name)}</span> units
-                  </p>
-                  <p className={`text-xs mt-1 ${
-                    isLowStock(selectedProduct.name) ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
-                  }`}>
-                    Stock After Sale: <span className="font-semibold">{getRemainingStock(selectedProduct.name, Number(formData.items))}</span> units
-                  </p>
-                  {isLowStock(selectedProduct.name) && (
-                    <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
-                      ⚠️ Low stock warning! Consider restocking soon.
-                    </p>
+                  {selectedProduct && (
+                    <>
+                      <p className={`text-xs mt-1 ${
+                        selectedProduct && isLowStock(selectedProduct.name)
+                          ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                      }`}>
+                        Available Stock: <span className="font-semibold">{getStockForProduct(selectedProduct.name)}</span> units
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        selectedProduct && isLowStock(selectedProduct.name)
+                          ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                      }`}>
+                        Stock After Sale: <span className="font-semibold">{getRemainingStock(selectedProduct.name, Number(formData.items))}</span> units
+                      </p>
+                      {isLowStock(selectedProduct.name) && (
+                        <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
+                          ⚠️ Low stock warning! Consider restocking soon.
+                        </p>
+                      )}
+                      {!hasEnoughStock(selectedProduct.name, Number(formData.items)) && (
+                        <p className="text-xs text-red-600 dark:text-red-500 mt-1 font-medium">
+                          ⚠️ Insufficient stock for requested quantity!
+                        </p>
+                      )}
+                    </>
                   )}
-                  {!hasEnoughStock(selectedProduct.name, Number(formData.items)) && (
-                    <p className="text-xs text-red-600 dark:text-red-500 mt-1 font-medium">
-                      ⚠️ Insufficient stock for requested quantity!
-                    </p>
+                  {selectedBakingSupply && (
+                    <>
+                      <p className={`text-xs mt-1 ${
+                        selectedBakingSupply && isBakingSupplyLowStock(selectedBakingSupply.supplyName)
+                          ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                      }`}>
+                        Available Stock: <span className="font-semibold">{getStockForBakingSupply(selectedBakingSupply.supplyName)}</span> {selectedBakingSupply.unit}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        selectedBakingSupply && isBakingSupplyLowStock(selectedBakingSupply.supplyName)
+                          ? "text-orange-600 dark:text-orange-500" : "text-blue-600 dark:text-blue-500"
+                      }`}>
+                        Stock After Sale: <span className="font-semibold">{Math.max(0, getStockForBakingSupply(selectedBakingSupply.supplyName) - Number(formData.items))}</span> {selectedBakingSupply.unit}
+                      </p>
+                      {isBakingSupplyLowStock(selectedBakingSupply.supplyName) && (
+                        <p className="text-xs text-orange-600 dark:text-orange-500 mt-1">
+                          ⚠️ Low stock warning! Consider restocking soon.
+                        </p>
+                      )}
+                      {!hasEnoughBakingSupplyStock(selectedBakingSupply.supplyName, Number(formData.items)) && (
+                        <p className="text-xs text-red-600 dark:text-red-500 mt-1 font-medium">
+                          ⚠️ Insufficient stock for requested quantity!
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

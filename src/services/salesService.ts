@@ -16,9 +16,72 @@ import { getPurchasesByProductName, updateBatchQuantity, addPurchase, restoreBat
 import { updateInventoryFromSale, adjustStock } from "./inventoryService";
 import { addNotification, shouldCreateNotification } from "./notificationService";
 import { getUserSettings } from "./settingsService";
+import { getBakingSupplyPurchasesBySupplyName, updateBakingSupplyBatchQuantity, restoreBakingSupplyBatchQuantitiesForSupply } from "./bakingSupplyPurchaseService";
 
 // 🔗 Collection reference
 const salesRef = collection(db, "sales");
+
+// 💰 CALCULATE COGS USING FIFO FOR BAKING SUPPLIES
+const calculateBakingSupplyCOGS = async (supplyName: string, quantity: number): Promise<number> => {
+  try {
+    const purchases = await getBakingSupplyPurchasesBySupplyName(supplyName);
+    let remainingQuantity = quantity;
+    let totalCOGS = 0;
+
+    for (const purchase of purchases) {
+      if (remainingQuantity <= 0) break;
+
+      const availableInBatch = purchase.quantityRemaining !== undefined ? purchase.quantityRemaining : purchase.quantity;
+
+      if (availableInBatch > 0) {
+        const deduction = Math.min(remainingQuantity, availableInBatch);
+        totalCOGS += deduction * purchase.unitPrice;
+        remainingQuantity -= deduction;
+      }
+    }
+
+    return totalCOGS;
+  } catch (error) {
+    console.error("Error calculating baking supply COGS:", error);
+    return 0;
+  }
+};
+
+// 🔄 APPLY BAKING SUPPLY INVENTORY DEDUCTION (FIFO)
+const applyBakingSupplyInventoryDeduction = async (supplyName: string, quantity: number): Promise<void> => {
+  try {
+    // Get all received purchases for this supply, ordered by date (oldest first)
+    const purchases = await getBakingSupplyPurchasesBySupplyName(supplyName);
+    
+    let remainingQuantity = quantity;
+    let totalDeducted = 0;
+    
+    for (const purchase of purchases) {
+      if (remainingQuantity <= 0) break;
+      
+      // Check how many items are remaining in this batch
+      const availableInBatch = purchase.quantityRemaining !== undefined ? purchase.quantityRemaining : purchase.quantity;
+      
+      if (availableInBatch > 0) {
+        // Calculate how much to deduct from this batch
+        const deduction = Math.min(remainingQuantity, availableInBatch);
+        
+        // Update the batch quantity
+        await updateBakingSupplyBatchQuantity(purchase.id!, deduction);
+        
+        totalDeducted += deduction;
+        remainingQuantity -= deduction;
+      }
+    }
+    
+    if (remainingQuantity > 0) {
+      throw new Error(`Insufficient inventory! Only ${totalDeducted} items available, but ${quantity} items were requested. Please restock before completing this sale.`);
+    }
+  } catch (error) {
+    console.error("Error applying baking supply inventory deduction:", error);
+    throw error;
+  }
+};
 
 // 💰 CALCULATE COGS USING FIFO
 const calculateCOGS = async (itemName: string, quantity: number): Promise<number> => {
@@ -50,7 +113,9 @@ const calculateCOGS = async (itemName: string, quantity: number): Promise<number
 export const addSale = async (sale: Sale) => {
   try {
     // Calculate COGS using FIFO
-    const cogs = await calculateCOGS(sale.itemName, sale.items);
+    const cogs = sale.itemType === "bakingSupply" 
+      ? await calculateBakingSupplyCOGS(sale.itemName, sale.items)
+      : await calculateCOGS(sale.itemName, sale.items);
     const grossProfit = sale.totalAmount - cogs;
 
     // Add the sale record with COGS and Gross Profit
@@ -85,7 +150,11 @@ export const addSale = async (sale: Sale) => {
     // The sale is already recorded, we just log the error for manual review
     if (sale.status === "completed") {
       try {
-        await applyFIFOInventoryDeduction(sale.itemName, sale.items);
+        if (sale.itemType === "bakingSupply") {
+          await applyBakingSupplyInventoryDeduction(sale.itemName, sale.items);
+        } else {
+          await applyFIFOInventoryDeduction(sale.itemName, sale.items);
+        }
       } catch (fifoError) {
         // Log the error but don't fail the sale - the sale is already recorded
         console.error("FIFO inventory deduction failed after sale was recorded:", fifoError);
@@ -157,6 +226,7 @@ export const updateInventoryFromSaleEdit = async (
   newStatus: string,
   originalQuantity: number,
   newQuantity: number,
+  itemType?: "product" | "bakingSupply",
   threshold?: number
 ): Promise<void> => {
   try {
@@ -177,16 +247,27 @@ export const updateInventoryFromSaleEdit = async (
 
     // If original status was completed, restore the original quantity
     if (originalStatus === "completed") {
-      // Restore inventory stock
-      await adjustStockByName(itemName, originalQuantity, "Sale edit - restore original quantity", lowStockThreshold);
-      
-      // Restore batch quantities using reverse FIFO (newest batches first)
-      await restoreBatchQuantitiesForProduct(itemName, originalQuantity);
+      // Restore inventory stock based on item type
+      if (itemType === "bakingSupply") {
+        // Restore baking supply stock
+        await adjustBakingSupplyStockByName(itemName, originalQuantity, "Sale edit - restore original quantity");
+        // Restore baking supply batch quantities using reverse FIFO (newest batches first)
+        await restoreBakingSupplyBatchQuantitiesForSupply(itemName, originalQuantity);
+      } else {
+        // Restore finished product stock
+        await adjustStockByName(itemName, originalQuantity, "Sale edit - restore original quantity", lowStockThreshold);
+        // Restore batch quantities using reverse FIFO (newest batches first)
+        await restoreBatchQuantitiesForProduct(itemName, originalQuantity);
+      }
     }
 
     // If new status is completed, deduct the new quantity
     if (newStatus === "completed") {
-      await applyFIFOInventoryDeduction(itemName, newQuantity);
+      if (itemType === "bakingSupply") {
+        await applyBakingSupplyInventoryDeduction(itemName, newQuantity);
+      } else {
+        await applyFIFOInventoryDeduction(itemName, newQuantity);
+      }
     }
   } catch (error) {
     console.error("Error updating inventory from sale edit:", error);
@@ -237,6 +318,48 @@ const adjustStockByName = async (
   } catch (error) {
     console.error("Error adjusting stock by name:", error);
     throw new Error("Failed to adjust stock. Please try again.");
+  }
+};
+
+// 🔄 ADJUST BAKING SUPPLY STOCK BY NAME (helper function)
+const adjustBakingSupplyStockByName = async (
+  supplyName: string,
+  quantity: number,
+  reason?: string
+): Promise<void> => {
+  try {
+    const bakingSuppliesRef = collection(db, "bakingSupplies");
+    const q = query(bakingSuppliesRef, where("name", "==", supplyName));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.warn(`Warning: Baking supply not found for ${supplyName}. Cannot adjust stock.`);
+      return;
+    }
+
+    const itemDoc = snapshot.docs[0];
+    const currentData = itemDoc.data();
+    const currentStock = currentData.quantity || 0;
+    const newStock = currentStock + quantity;
+    
+    // Determine status based on new stock level
+    let newStatus: "in_stock" | "low_stock" | "out_of_stock" = "in_stock";
+    if (newStock <= 0) {
+      newStatus = "out_of_stock";
+    } else if (newStock < 5) {
+      newStatus = "low_stock";
+    }
+
+    await updateDoc(doc(db, "bakingSupplies", itemDoc.id), {
+      quantity: newStock,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+    });
+
+    console.log(`Adjusted baking supply ${supplyName} stock: ${currentStock} -> ${newStock}`);
+  } catch (error) {
+    console.error("Error adjusting baking supply stock by name:", error);
+    throw new Error("Failed to adjust baking supply stock. Please try again.");
   }
 };
 
@@ -291,7 +414,8 @@ export const updateSale = async (
           originalSale.status,
           newStatus,
           originalSale.items,
-          newQuantity
+          newQuantity,
+          originalSale.itemType
         );
       }
 
@@ -327,7 +451,7 @@ export const deleteSale = async (id: string, sale?: Sale) => {
   try {
     // If sale data is provided and status was completed, restore inventory
     if (sale && sale.status === "completed") {
-      await restoreInventoryFromSale(sale.itemName, sale.items);
+      await restoreInventoryFromSale(sale.itemName, sale.items, sale.itemType);
     }
 
     const saleRef = doc(db, "sales", id);
@@ -342,14 +466,22 @@ export const deleteSale = async (id: string, sale?: Sale) => {
 const restoreInventoryFromSale = async (
   itemName: string,
   quantity: number,
+  itemType?: "product" | "bakingSupply",
   threshold: number = 5
 ): Promise<void> => {
   try {
-    // Restore inventory stock
-    await adjustStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory", threshold);
-
-    // Restore batch quantities using reverse FIFO (newest batches first)
-    await restoreBatchQuantitiesForProduct(itemName, quantity);
+    // Restore inventory stock based on item type
+    if (itemType === "bakingSupply") {
+      // Restore baking supply stock
+      await adjustBakingSupplyStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory");
+      // Restore baking supply batch quantities using reverse FIFO (newest batches first)
+      await restoreBakingSupplyBatchQuantitiesForSupply(itemName, quantity);
+    } else {
+      // Restore finished product stock
+      await adjustStockByName(itemName, quantity, "Sale deleted/cancelled - restore inventory", threshold);
+      // Restore batch quantities using reverse FIFO (newest batches first)
+      await restoreBatchQuantitiesForProduct(itemName, quantity);
+    }
 
     console.log(`Restored ${quantity} items to inventory and batches for ${itemName}`);
   } catch (error) {

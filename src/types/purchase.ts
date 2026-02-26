@@ -4,7 +4,7 @@ export interface Purchase {
   date: Date;
   time: string; // Time of purchase in HH:MM format
   itemName: string; // Product name being purchased
-  supplier: string; // Supplier name
+  supplier: string; // Baker name
   items: number; // Total number of items being purchased
   itemsRemaining: number; // Items remaining in this batch after sales
   itemPrice: number; // Individual item price (can vary by supplier/time)

@@ -24,7 +24,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: ShoppingCart, label: "Sales", path: "/sales" },
-  { icon: Package, label: "Products & Services", path: "/products" },
+  { icon: Package, label: "Product, Services & Baking Supply details", path: "/products" },
   { icon: Warehouse, label: "Inventory", path: "/inventory" },
   { icon: Truck, label: "Purchases", path: "/purchases" },
   { icon: Cake, label: "Finished Products", path: "/finished-products" },

@@ -3,53 +3,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ERP Design System - Professional business dashboard theme */
+/* Bakery Design System - Warm and inviting theme for a bakery ERP */
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 222 47% 11%;
+    --background: 30 38% 98%;
+    --foreground: 28 10% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 28 10% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 28 10% 20%;
 
-    --primary: 217 91% 50%;
+    --primary: 30 60% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 30 14% 96%;
+    --secondary-foreground: 28 10% 20%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 30 14% 96%;
+    --muted-foreground: 28 5% 45%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 30 14% 96%;
+    --accent-foreground: 28 10% 20%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 50%;
+    --border: 30 13% 91%;
+    --input: 30 13% 91%;
+    --ring: 30 60% 55%;
 
     --radius: 0.5rem;
 
-    /* Sidebar - Dark Navy Blue */
-    --sidebar-background: 222 47% 16%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 50%;
+    /* Sidebar - Warm Brown */
+    --sidebar-background: 28 25% 20%;
+    --sidebar-foreground: 30 14% 96%;
+    --sidebar-primary: 30 60% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 22%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 22%;
-    --sidebar-ring: 217 91% 50%;
-    --sidebar-muted: 220 9% 70%;
+    --sidebar-accent: 28 25% 25%;
+    --sidebar-accent-foreground: 30 14% 96%;
+    --sidebar-border: 28 25% 25%;
+    --sidebar-ring: 30 60% 55%;
+    --sidebar-muted: 28 10% 50%;
 
-    /* ERP Semantic Colors */
-    --erp-blue: 217 91% 50%;
+    /* Bakery Semantic Colors */
+    --erp-blue: 200 70% 60%;
     --erp-green: 142 76% 36%;
     --erp-teal: 168 76% 42%;
     --erp-red: 0 72% 51%;
@@ -59,8 +59,8 @@
     /* KPI Card Gradients */
     --kpi-sales: linear-gradient(
       135deg,
-      hsl(217 91% 50%) 0%,
-      hsl(217 91% 40%) 100%
+      hsl(30 60% 55%) 0%,
+      hsl(30 60% 45%) 100%
     );
     --kpi-revenue: linear-gradient(
       135deg,
@@ -69,8 +69,8 @@
     );
     --kpi-profit: linear-gradient(
       135deg,
-      hsl(168 76% 42%) 0%,
-      hsl(168 76% 35%) 100%
+      hsl(38 80% 65%) 0%,
+      hsl(38 80% 55%) 100%
     );
     --kpi-alert: linear-gradient(
       135deg,
@@ -79,11 +79,11 @@
     );
 
     /* Chart colors */
-    --chart-1: 217 91% 50%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 168 76% 42%;
+    --chart-1: 30 60% 55%;
+    --chart-2: 38 80% 65%;
+    --chart-3: 142 76% 36%;
     --chart-4: 25 95% 53%;
-    --chart-5: 262 83% 58%;
+    --chart-5: 200 70% 60%;
 
     /* Shadows */
     --shadow-2xs: 0 1px 1px 0 hsl(222 47% 11% / 0.03);
@@ -98,46 +98,46 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 28 25% 11%;
+    --foreground: 30 14% 96%;
 
-    --card: 222 47% 16%;
-    --card-foreground: 210 40% 98%;
+    --card: 28 25% 16%;
+    --card-foreground: 30 14% 96%;
 
-    --popover: 222 47% 16%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 28 25% 16%;
+    --popover-foreground: 30 14% 96%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 30 60% 60%;
+    --primary-foreground: 28 25% 11%;
 
-    --secondary: 222 47% 22%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 28 25% 22%;
+    --secondary-foreground: 30 14% 96%;
 
-    --muted: 222 47% 22%;
-    --muted-foreground: 220 9% 65%;
+    --muted: 28 25% 22%;
+    --muted-foreground: 28 10% 65%;
 
-    --accent: 222 47% 22%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 28 25% 22%;
+    --accent-foreground: 30 14% 96%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 222 47% 22%;
-    --input: 222 47% 22%;
-    --ring: 217 91% 60%;
+    --border: 28 25% 22%;
+    --input: 28 25% 22%;
+    --ring: 30 60% 60%;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 28 25% 11%;
+    --sidebar-foreground: 30 14% 96%;
+    --sidebar-primary: 30 60% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 217 91% 60%;
-    --sidebar-muted: 220 9% 50%;
+    --sidebar-accent: 28 25% 18%;
+    --sidebar-accent-foreground: 30 14% 96%;
+    --sidebar-border: 28 25% 18%;
+    --sidebar-ring: 30 60% 60%;
+    --sidebar-muted: 28 10% 50%;
 
-    /* ERP Semantic Colors - Same in dark mode for consistency */
-    --erp-blue: 217 91% 60%;
+    /* Bakery Semantic Colors - Adjusted for dark mode */
+    --erp-blue: 200 70% 65%;
     --erp-green: 142 76% 45%;
     --erp-teal: 168 76% 50%;
     --erp-red: 0 72% 60%;
@@ -147,8 +147,8 @@
     /* KPI Card Gradients - Adjusted for dark mode */
     --kpi-sales: linear-gradient(
       135deg,
-      hsl(217 91% 60%) 0%,
-      hsl(217 91% 50%) 100%
+      hsl(30 60% 60%) 0%,
+      hsl(30 60% 50%) 100%
     );
     --kpi-revenue: linear-gradient(
       135deg,
@@ -157,8 +157,8 @@
     );
     --kpi-profit: linear-gradient(
       135deg,
-      hsl(168 76% 50%) 0%,
-      hsl(168 76% 42%) 100%
+      hsl(38 80% 70%) 0%,
+      hsl(38 80% 60%) 100%
     );
     --kpi-alert: linear-gradient(
       135deg,
@@ -167,11 +167,11 @@
     );
 
     /* Chart colors - Adjusted for dark mode */
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 45%;
-    --chart-3: 168 76% 50%;
+    --chart-1: 30 60% 60%;
+    --chart-2: 38 80% 70%;
+    --chart-3: 142 76% 45%;
     --chart-4: 25 95% 60%;
-    --chart-5: 262 83% 65%;
+    --chart-5: 200 70% 65%;
 
     /* Shadows - Adjusted for dark mode */
     --shadow-2xs: 0 1px 1px 0 hsl(210 40% 98% / 0.05);

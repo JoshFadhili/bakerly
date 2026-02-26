@@ -169,8 +169,12 @@ export const deductBakingSuppliesForProduction = async (
       console.log("[deductBakingSuppliesForProduction] Checking ingredient:", ingredient.bakingSupplyName, "quantityToDeduct:", quantityToDeduct);
 
       // Get all batches for this supply (sorted by date ascending for FIFO)
-      const batches = await getBakingSupplyPurchasesBySupplyName(ingredient.bakingSupplyName);
-      console.log("[deductBakingSuppliesForProduction] Found batches for", ingredient.bakingSupplyName, ":", batches.length);
+      // Only include batches that are purposed for production or both (not resale only)
+      const allBatches = await getBakingSupplyPurchasesBySupplyName(ingredient.bakingSupplyName);
+      const batches = allBatches.filter(batch => 
+        batch.purpose === "production" || batch.purpose === "both"
+      );
+      console.log("[deductBakingSuppliesForProduction] Found batches for", ingredient.bakingSupplyName, ":", batches.length, "(filtered from", allBatches.length, "total batches)");
 
       // Calculate total available quantity
       const totalAvailable = batches.reduce((sum, batch) => {
@@ -365,8 +369,12 @@ export const checkStockForProduction = async (
       const requiredQuantity = ingredient.quantity * multiplier;
 
       // Get all batches for this supply and calculate total remaining quantity
-      const batches = await getBakingSupplyPurchasesBySupplyName(ingredient.bakingSupplyName);
-      const availableQuantity = batches.reduce((sum, batch) => {
+      // Only include batches that are purposed for production or both (not resale only)
+      const allBatches = await getBakingSupplyPurchasesBySupplyName(ingredient.bakingSupplyName);
+      const productionBatches = allBatches.filter(batch => 
+        batch.purpose === "production" || batch.purpose === "both"
+      );
+      const availableQuantity = productionBatches.reduce((sum, batch) => {
         return sum + (batch.quantityRemaining !== undefined ? batch.quantityRemaining : batch.quantity);
       }, 0);
 

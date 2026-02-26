@@ -550,7 +550,7 @@ onClose();
             <Label htmlFor="baker">Baker</Label>
             <Input
               id="baker"
-              name="baker"
+              name="supplier"
               type="text"
               placeholder="Enter baker name"
               value={formData.supplier}

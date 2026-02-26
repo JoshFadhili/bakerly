@@ -36,6 +36,13 @@ import {
   deleteAllBatches,
   deleteAllStockAdjustments,
   deleteAllExpenses,
+  deleteAllBakingSupplies,
+  deleteAllBakingSupplyPurchases,
+  deleteAllCategories,
+  deleteAllRecipes,
+  deleteAllRecipeUsageLogs,
+  deleteAllSettings,
+  deleteAllNotifications,
   deleteDepletedBatches,
   deleteAll,
 } from "@/services/adminService";
@@ -281,7 +288,7 @@ export default function Settings() {
         case "all":
           const results = await deleteAll();
           const totalDeleted = Object.values(results).reduce((sum, count) => sum + count, 0);
-          successMessage = `Deleted all data: ${totalDeleted} total records (${results.sales} sales, ${results.products} products, ${results.services} services, ${results.inventory} inventory, ${results.purchases} purchases, ${results.batches} batches, ${results.stockAdjustments} stock adjustments, ${results.expenses} expenses, ${results.servicesOffered} services offered)`;
+          successMessage = `Deleted all data: ${totalDeleted} total records (${results.sales} sales, ${results.products} products, ${results.services} services, ${results.inventory} inventory, ${results.purchases} purchases, ${results.batches} batches, ${results.stockAdjustments} stock adjustments, ${results.expenses} expenses, ${results.servicesOffered} services offered, ${results.bakingSupplies} baking supplies, ${results.bakingSupplyPurchases} baking supply purchases, ${results.categories} categories, ${results.recipes} recipes, ${results.recipeUsageLogs} recipe usage logs, ${results.settings} settings, ${results.notifications} notifications)`;
           break;
         case "depletedBatches":
           deletedCount = await deleteDepletedBatches();
@@ -322,6 +329,34 @@ export default function Settings() {
         case "expenses":
           deletedCount = await deleteAllExpenses();
           successMessage = `Deleted ${deletedCount} expense(s)`;
+          break;
+        case "bakingSupplies":
+          deletedCount = await deleteAllBakingSupplies();
+          successMessage = `Deleted ${deletedCount} baking supply record(s)`;
+          break;
+        case "bakingSupplyPurchases":
+          deletedCount = await deleteAllBakingSupplyPurchases();
+          successMessage = `Deleted ${deletedCount} baking supply purchase(s)`;
+          break;
+        case "categories":
+          deletedCount = await deleteAllCategories();
+          successMessage = `Deleted ${deletedCount} category(ies)`;
+          break;
+        case "recipes":
+          deletedCount = await deleteAllRecipes();
+          successMessage = `Deleted ${deletedCount} recipe(s)`;
+          break;
+        case "recipeUsageLogs":
+          deletedCount = await deleteAllRecipeUsageLogs();
+          successMessage = `Deleted ${deletedCount} recipe usage log(s)`;
+          break;
+        case "settings":
+          deletedCount = await deleteAllSettings();
+          successMessage = `Deleted ${deletedCount} settings record(s)`;
+          break;
+        case "notifications":
+          deletedCount = await deleteAllNotifications();
+          successMessage = `Deleted ${deletedCount} notification(s)`;
           break;
         default:
           throw new Error("Invalid action");
@@ -958,6 +993,69 @@ export default function Settings() {
                   <Trash2 className="h-4 w-4" />
                   Delete All Expenses
                 </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("bakingSupplies")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Baking Supplies
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("bakingSupplyPurchases")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Baking Supply Purchases
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("categories")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Categories
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("recipes")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Recipes
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("recipeUsageLogs")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Recipe Usage Logs
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("settings")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Settings
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("notifications")}
+                  className="w-full justify-start gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Notifications
+                </Button>
               </div>
 
               {/* Password Confirmation Dialog */}
@@ -970,7 +1068,7 @@ export default function Settings() {
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                       {selectedAction === "all" 
-                        ? "This will permanently delete ALL data from the system including sales, products, services, inventory, purchases, batches, stock adjustments, and expenses. This action cannot be undone. Please enter your password to confirm."
+                        ? "This will permanently delete ALL data from the system including sales, products, services, inventory, purchases, batches, stock adjustments, expenses, services offered, baking supplies, baking supply purchases, categories, recipes, recipe usage logs, settings, and notifications. This action cannot be undone. Please enter your password to confirm."
                         : "This action cannot be undone. Please enter your password to confirm."
                       }
                     </AlertDialogDescription>

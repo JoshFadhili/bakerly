@@ -415,7 +415,7 @@ export default function Products() {
             className="w-full sm:w-auto"
           >
             <TabsList>
-              <TabsTrigger value="goods" asChild={false}>Goods</TabsTrigger>
+              <TabsTrigger value="goods" asChild={false}>Products</TabsTrigger>
               <TabsTrigger value="services" asChild={false}>Services</TabsTrigger>
               <TabsTrigger value="baking_supplies" asChild={false}>Baking Supplies</TabsTrigger>
             </TabsList>

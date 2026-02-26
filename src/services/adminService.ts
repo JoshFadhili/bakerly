@@ -100,6 +100,41 @@ export const deleteAllExpenses = async () => {
   return deleteAllFromCollection("expenses");
 };
 
+// 🗑️ Delete all baking supplies
+export const deleteAllBakingSupplies = async () => {
+  return deleteAllFromCollection("bakingSupplies");
+};
+
+// 🗑️ Delete all baking supply purchases
+export const deleteAllBakingSupplyPurchases = async () => {
+  return deleteAllFromCollection("bakingSupplyPurchases");
+};
+
+// 🗑️ Delete all categories
+export const deleteAllCategories = async () => {
+  return deleteAllFromCollection("categories");
+};
+
+// 🗑️ Delete all recipes
+export const deleteAllRecipes = async () => {
+  return deleteAllFromCollection("recipes");
+};
+
+// 🗑️ Delete all recipe usage logs
+export const deleteAllRecipeUsageLogs = async () => {
+  return deleteAllFromCollection("recipeUsageLogs");
+};
+
+// 🗑️ Delete all settings
+export const deleteAllSettings = async () => {
+  return deleteAllFromCollection("settings");
+};
+
+// 🗑️ Delete all notifications
+export const deleteAllNotifications = async () => {
+  return deleteAllFromCollection("notifications");
+};
+
 // 🗑️ Hide depleted batches (batches with 0 remaining items) from batch details view
 // This preserves purchase records while hiding them from the batch details tab
 export const deleteDepletedBatches = async (): Promise<number> => {
@@ -127,7 +162,7 @@ export const deleteAll = async (): Promise<{ [key: string]: number }> => {
   
   try {
     // Delete all collections in parallel
-    const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, purchasesCount, batchesCount, stockAdjustmentsCount, expensesCount] = await Promise.all([
+    const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, purchasesCount, batchesCount, stockAdjustmentsCount, expensesCount, bakingSuppliesCount, bakingSupplyPurchasesCount, categoriesCount, recipesCount, recipeUsageLogsCount, settingsCount, notificationsCount] = await Promise.all([
       deleteAllSales().catch(e => { console.error("Error deleting sales:", e); return 0; }),
       deleteAllServicesOffered().catch(e => { console.error("Error deleting services offered:", e); return 0; }),
       deleteAllProducts().catch(e => { console.error("Error deleting products:", e); return 0; }),
@@ -137,6 +172,13 @@ export const deleteAll = async (): Promise<{ [key: string]: number }> => {
       deleteAllBatches().catch(e => { console.error("Error deleting batches:", e); return 0; }),
       deleteAllStockAdjustments().catch(e => { console.error("Error deleting stock adjustments:", e); return 0; }),
       deleteAllExpenses().catch(e => { console.error("Error deleting expenses:", e); return 0; }),
+      deleteAllBakingSupplies().catch(e => { console.error("Error deleting baking supplies:", e); return 0; }),
+      deleteAllBakingSupplyPurchases().catch(e => { console.error("Error deleting baking supply purchases:", e); return 0; }),
+      deleteAllCategories().catch(e => { console.error("Error deleting categories:", e); return 0; }),
+      deleteAllRecipes().catch(e => { console.error("Error deleting recipes:", e); return 0; }),
+      deleteAllRecipeUsageLogs().catch(e => { console.error("Error deleting recipe usage logs:", e); return 0; }),
+      deleteAllSettings().catch(e => { console.error("Error deleting settings:", e); return 0; }),
+      deleteAllNotifications().catch(e => { console.error("Error deleting notifications:", e); return 0; }),
     ]);
     
     results.sales = salesCount;
@@ -148,6 +190,13 @@ export const deleteAll = async (): Promise<{ [key: string]: number }> => {
     results.batches = batchesCount;
     results.stockAdjustments = stockAdjustmentsCount;
     results.expenses = expensesCount;
+    results.bakingSupplies = bakingSuppliesCount;
+    results.bakingSupplyPurchases = bakingSupplyPurchasesCount;
+    results.categories = categoriesCount;
+    results.recipes = recipesCount;
+    results.recipeUsageLogs = recipeUsageLogsCount;
+    results.settings = settingsCount;
+    results.notifications = notificationsCount;
     
     return results;
   } catch (error) {

@@ -3,6 +3,8 @@ import { getExpenses, filterExpensesByDateRange } from "./expenseService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
 import { getLowStockItems } from "./inventoryService";
 import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
+import { getBakingSupplies } from "./bakingSupplyService";
+import { getBakingSupplyPurchases, filterBakingSupplyPurchasesByDateRange } from "./bakingSupplyPurchaseService";
 import { getUserSettings } from "./settingsService";
 import { collection, onSnapshot, query, orderBy, limit, Timestamp, Unsubscribe } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
@@ -28,10 +30,12 @@ export interface TopProduct {
 }
 
 export interface Activity {
-  type: "sale" | "purchase" | "expense" | "service";
+  type: "sale" | "purchase" | "expense" | "service" | "finishedProduct";
   dateTime: string; // Formatted date/time string
   description: string; // What was sold/purchased/paid for
   amount?: string; // Total revenue or cost
+  status?: string; // Status of the activity (completed, pending, cancelled, received)
+  itemType?: "product" | "bakingSupply"; // Type of item for sales
   createdAt: Date; // When the record was added to database
 }
 
@@ -57,19 +61,22 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
     const { startOfDay, endOfDay } = getTodayRange();
     const { startOfMonth, endOfMonth } = getCurrentMonthRange();
 
-    // Get user settings for low stock threshold
-    let lowStockThreshold = 5; // default value
+    // Get user settings for low stock thresholds
+    let finishedProductThreshold = 5; // default value for finished products
+    let bakingSupplyThreshold = 10; // default value for baking supplies
     if (auth.currentUser) {
       try {
         const userSettings = await getUserSettings(auth.currentUser.uid);
-        lowStockThreshold = userSettings.notifications?.lowStockThreshold ?? 5;
+        finishedProductThreshold = userSettings.notifications?.finishedProductThreshold ?? 
+          userSettings.notifications?.lowStockThreshold ?? 5;
+        bakingSupplyThreshold = userSettings.notifications?.bakingSupplyThreshold ?? 10;
       } catch (error) {
-        console.error("Error fetching user settings for low stock threshold:", error);
-        // Use default value if settings fetch fails
+        console.error("Error fetching user settings for low stock thresholds:", error);
+        // Use default values if settings fetch fails
       }
     }
 
-    // Get today's sales
+    // Get today's sales (includes both products and baking supplies via itemType)
     const todaySales = await filterSalesByDateRange(startOfDay, endOfDay);
     const todayServices = await filterServicesOfferedByDateRange(startOfDay, endOfDay);
     
@@ -85,7 +92,7 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
     const todayTransactions = todaySales.filter(sale => sale.status === "completed").length + 
                             todayServices.filter(service => service.status === "completed").length;
 
-    // Get monthly revenue
+    // Get monthly revenue (includes both products and baking supplies)
     const monthlySales = await filterSalesByDateRange(startOfMonth, endOfMonth);
     const monthlyServices = await filterServicesOfferedByDateRange(startOfMonth, endOfMonth);
     
@@ -100,9 +107,14 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
     const monthlyExpenses = await filterExpensesByDateRange(startOfMonth, endOfMonth);
     const totalMonthlyExpenses = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Calculate COGS for monthly sales
+    // Calculate COGS for monthly product sales
     const purchases = await getPurchases();
     const calculateCOGSForSale = async (sale: any): Promise<number> => {
+      // Skip COGS calculation for baking supply sales
+      if (sale.itemType === "bakingSupply") {
+        return 0;
+      }
+      
       const productPurchases = purchases
         .filter(p => 
           p.itemName?.trim().toLowerCase() === sale.itemName?.trim().toLowerCase() &&
@@ -128,24 +140,42 @@ export const getDashboardKPI = async (): Promise<DashboardKPI> => {
       return totalCOGS;
     };
 
-    let totalCOGS = 0;
+    // Get monthly baking supply purchases for COGS calculation
+    const monthlyBakingSupplyPurchases = await filterBakingSupplyPurchasesByDateRange(startOfMonth, endOfMonth);
+    const bakingSupplyCOGS = monthlyBakingSupplyPurchases
+      .filter(p => p.status === "received")
+      .reduce((sum, purchase) => {
+        // Calculate the cost of supplies used this month
+        const quantityUsed = purchase.quantity - (purchase.quantityRemaining || purchase.quantity);
+        return sum + (quantityUsed * purchase.unitPrice);
+      }, 0);
+
+    let totalProductCOGS = 0;
     for (const sale of monthlySales.filter(s => s.status === "completed")) {
       const cogs = await calculateCOGSForSale(sale);
-      totalCOGS += cogs;
+      totalProductCOGS += cogs;
     }
 
+    const totalCOGS = totalProductCOGS + bakingSupplyCOGS;
     const monthlyGrossProfit = monthlyRevenue - totalCOGS;
     const monthlyNetProfit = monthlyGrossProfit - totalMonthlyExpenses;
 
-    // Get low stock items with user's threshold
-    const lowStockItems = await getLowStockItems(lowStockThreshold);
+    // Get low stock items with user's threshold (products from inventory)
+    const lowStockItems = await getLowStockItems(finishedProductThreshold);
+    
+    // Get low stock baking supplies
+    const bakingSupplies = await getBakingSupplies();
+    const lowStockBakingSupplies = bakingSupplies.filter(supply => 
+      supply.status === "low_stock" || supply.status === "out_of_stock" || 
+      (supply.quantity !== undefined && supply.quantity < bakingSupplyThreshold)
+    );
 
     return {
       todaySales: todayTotalSales,
       todayTransactions,
       monthlyRevenue,
       monthlyNetProfit,
-      lowStockCount: lowStockItems.length,
+      lowStockCount: lowStockItems.length + lowStockBakingSupplies.length,
     };
   } catch (error) {
     console.error("Error fetching dashboard KPI:", error);
@@ -363,24 +393,51 @@ export const getRecentActivities = async (limit: number = 5): Promise<Activity[]
       return `${dateStr} at ${time}`;
     };
 
-    // Add sales as activities
+    // Add sales as activities (include all statuses: completed, pending, cancelled)
     for (const sale of sales) {
+      // Get status label
+      const statusLabel = sale.status === "cancelled" ? "(Cancelled)" : 
+                         sale.status === "pending" ? "(Pending)" : "";
+      const itemTypeLabel = sale.itemType === "bakingSupply" ? " (Baking Supply)" : "";
+      
       activities.push({
         type: "sale",
         dateTime: formatDateTime(sale.date, sale.time),
-        description: `${sale.items} ${sale.itemName} sold`,
+        description: `${sale.items} ${sale.itemName}${itemTypeLabel} sold ${statusLabel}`.trim(),
         amount: `KSh ${sale.totalAmount.toLocaleString()}`,
+        status: sale.status,
+        itemType: sale.itemType,
         createdAt: sale.createdAt,
       });
     }
 
-    // Add purchases as activities
+    // Add finished products (received purchases) as activities
     for (const purchase of purchases) {
+      // Only include finished products that are received
+      if (purchase.status === "received") {
+        activities.push({
+          type: "finishedProduct",
+          dateTime: formatDateTime(purchase.date, purchase.time),
+          description: `${purchase.items} ${purchase.itemName} completed`,
+          amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+          status: purchase.status,
+          createdAt: purchase.createdAt,
+        });
+      }
+    }
+
+    // Add all purchases as activities (including pending, cancelled, and received)
+    for (const purchase of purchases) {
+      const statusLabel = purchase.status === "cancelled" ? "(Cancelled)" : 
+                         purchase.status === "pending" ? "(Pending)" : 
+                         purchase.status === "received" ? "(Received)" : "";
+      
       activities.push({
         type: "purchase",
         dateTime: formatDateTime(purchase.date, purchase.time),
-        description: `${purchase.items} ${purchase.itemName} purchased`,
+        description: `${purchase.items} ${purchase.itemName} purchased ${statusLabel}`.trim(),
         amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+        status: purchase.status,
         createdAt: purchase.createdAt,
       });
     }
@@ -460,26 +517,54 @@ export const subscribeToRecentActivities = (
       return `${dateStr} at ${time}`;
     };
 
-    // Add sales as activities
+    // Add sales as activities (include all statuses: completed, pending, cancelled)
     for (const sale of salesData) {
       const createdAt = sale.createdAt instanceof Timestamp ? sale.createdAt.toDate() : sale.createdAt;
+      const statusLabel = sale.status === "cancelled" ? "(Cancelled)" : 
+                         sale.status === "pending" ? "(Pending)" : "";
+      const itemTypeLabel = sale.itemType === "bakingSupply" ? " (Baking Supply)" : "";
+      
       activities.push({
         type: "sale",
         dateTime: formatDateTime(sale.date, sale.time),
-        description: `${sale.items} ${sale.itemName} sold`,
+        description: `${sale.items} ${sale.itemName}${itemTypeLabel} sold ${statusLabel}`.trim(),
         amount: `KSh ${sale.totalAmount.toLocaleString()}`,
+        status: sale.status,
+        itemType: sale.itemType,
         createdAt: createdAt,
       });
     }
 
-    // Add purchases as activities
+    // Add finished products (received purchases) as activities
     for (const purchase of purchasesData) {
       const createdAt = purchase.createdAt instanceof Timestamp ? purchase.createdAt.toDate() : purchase.createdAt;
+      
+      // Only include finished products that are received
+      if (purchase.status === "received") {
+        activities.push({
+          type: "finishedProduct",
+          dateTime: formatDateTime(purchase.date, purchase.time),
+          description: `${purchase.items} ${purchase.itemName} completed`,
+          amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+          status: purchase.status,
+          createdAt: createdAt,
+        });
+      }
+    }
+
+    // Add purchases as activities (including pending, cancelled, and received)
+    for (const purchase of purchasesData) {
+      const createdAt = purchase.createdAt instanceof Timestamp ? purchase.createdAt.toDate() : purchase.createdAt;
+      const statusLabel = purchase.status === "cancelled" ? "(Cancelled)" : 
+                         purchase.status === "pending" ? "(Pending)" : 
+                         purchase.status === "received" ? "(Received)" : "";
+      
       activities.push({
         type: "purchase",
         dateTime: formatDateTime(purchase.date, purchase.time),
-        description: `${purchase.items} ${purchase.itemName} purchased`,
+        description: `${purchase.items} ${purchase.itemName} purchased ${statusLabel}`.trim(),
         amount: `KSh ${purchase.totalCost.toLocaleString()}`,
+        status: purchase.status,
         createdAt: createdAt,
       });
     }

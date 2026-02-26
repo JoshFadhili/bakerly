@@ -357,6 +357,7 @@ export const updateInventoryFromSale = async (
             `${itemName} is running low on stock. Current stock: ${newStock} (threshold: ${threshold})`,
             {
               productName: itemName,
+              itemType: 'product',
               stockLevel: newStock,
               threshold: threshold,
             }

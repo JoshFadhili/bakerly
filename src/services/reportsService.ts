@@ -2,6 +2,7 @@ import { getSales, filterSalesByDateRange } from "./salesService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
 import { getProducts } from "./productService";
 import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
+import { getBakingSupplyPurchases, filterBakingSupplyPurchasesByDateRange } from "./bakingSupplyPurchaseService";
 
 // Types for reports
 export interface ReportItem {
@@ -52,6 +53,11 @@ const calculateCOGSForSale = async (
   allPurchases: any[]
 ): Promise<number> => {
   try {
+    // Skip COGS calculation for baking supply sales - they are handled separately
+    if (sale.itemType === "bakingSupply") {
+      return 0;
+    }
+    
     const productPurchases = allPurchases
       .filter((p) =>
         p.itemName?.trim().toLowerCase() === sale.itemName?.trim().toLowerCase() &&
@@ -113,16 +119,19 @@ export const getReportItems = async (
     let sales: any[] = [];
     let purchases: any[] = [];
     let servicesOffered: any[] = [];
+    let bakingSupplyPurchases: any[] = [];
 
     // Get data based on date range
     if (startDate && endDate) {
       sales = await filterSalesByDateRange(startDate, endDate);
       purchases = await filterPurchasesByDateRange(startDate, endDate);
       servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
+      bakingSupplyPurchases = await filterBakingSupplyPurchasesByDateRange(startDate, endDate);
     } else {
       sales = await getSales();
       purchases = await getPurchases();
       servicesOffered = await getServicesOffered();
+      bakingSupplyPurchases = await getBakingSupplyPurchases();
     }
 
     const products = await getProducts();
@@ -229,6 +238,58 @@ export const getReportItems = async (
         grossProfitLoss: grossProfit,
         date: service.date,
         type: serviceType,
+      });
+    }
+
+    // Process baking supply purchases
+    for (const purchase of bakingSupplyPurchases) {
+      if (purchase.status !== "received") continue;
+
+      const supplyCategory = purchase.category || "Baking Supplies";
+      const supplyType = "goods";
+
+      // Filter by type
+      if (type && supplyType !== type) continue;
+
+      // Filter by category
+      if (category && supplyCategory !== category) continue;
+
+      // For baking supply purchases, the cost is the COGS (negative impact)
+      const purchaseCost = purchase.totalCost || (purchase.quantity * purchase.unitPrice);
+      const cogs = purchaseCost;
+      // Revenue is 0 for purchases (they are expenses)
+      const revenue = 0;
+      const grossProfit = revenue - cogs; // This will be negative (a loss/cost)
+
+      // Filter by profit/loss type (for purchases, we want to show as cost)
+      if (profitLossType === "profit") continue; // Purchases are costs, not profits
+      if (profitLossType === "loss" && grossProfit >= 0) continue;
+
+      // Filter by amount range
+      if (minAmount !== undefined && purchaseCost < minAmount) continue;
+      if (maxAmount !== undefined && purchaseCost > maxAmount) continue;
+
+      // Filter by search term
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+          purchase.supplyName?.toLowerCase().includes(searchLower) ||
+          supplyCategory.toLowerCase().includes(searchLower) ||
+          purchaseCost.toString().includes(searchLower);
+        if (!matchesSearch) continue;
+      }
+
+      reportItems.push({
+        reportId: generateReportId(reportItems.length),
+        productService: purchase.supplyName,
+        description: `Purchase of ${purchase.quantity} ${purchase.supplyName}`,
+        category: supplyCategory,
+        amount: purchase.quantity,
+        revenue: revenue,
+        cog: cogs,
+        grossProfitLoss: grossProfit,
+        date: purchase.date,
+        type: supplyType,
       });
     }
 

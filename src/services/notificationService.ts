@@ -211,6 +211,8 @@ export async function shouldCreateNotification(
     switch (type) {
       case 'low_stock':
         return settings.notifications?.lowStockAlerts ?? true;
+      case 'low_stock_baking_supply':
+        return settings.notifications?.lowStockAlerts ?? true;
       case 'new_order':
         return settings.notifications?.newOrderNotifications ?? false;
       case 'daily_sales_summary':

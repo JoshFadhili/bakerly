@@ -15,7 +15,9 @@ export interface BusinessInfo {
 
 export interface NotificationPreferences {
   lowStockAlerts: boolean;
-  lowStockThreshold: number;
+  lowStockThreshold: number; // Legacy - kept for backward compatibility
+  finishedProductThreshold: number; // Threshold for finished products (inventory)
+  bakingSupplyThreshold: number; // Threshold for baking supplies
   dailySalesSummary: boolean;
   newOrderNotifications: boolean;
   expenseReminders: boolean;

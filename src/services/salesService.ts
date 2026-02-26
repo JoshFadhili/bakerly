@@ -77,6 +77,48 @@ const applyBakingSupplyInventoryDeduction = async (supplyName: string, quantity:
     if (remainingQuantity > 0) {
       throw new Error(`Insufficient inventory! Only ${totalDeducted} items available, but ${quantity} items were requested. Please restock before completing this sale.`);
     }
+    
+    // After deduction, check if remaining stock is below threshold and create notification
+    if (totalDeducted > 0 && auth.currentUser) {
+      try {
+        // Get current total remaining quantity for this supply
+        const allPurchases = await getBakingSupplyPurchasesBySupplyName(supplyName);
+        const totalRemaining = allPurchases.reduce((sum, p) => {
+          const remaining = p.quantityRemaining !== undefined ? p.quantityRemaining : p.quantity;
+          return sum + remaining;
+        }, 0);
+        
+        // Get user's baking supply threshold from settings
+        const userSettings = await getUserSettings(auth.currentUser.uid);
+        const bakingSupplyThreshold = userSettings.notifications?.bakingSupplyThreshold ?? 10;
+        
+        // Check if stock fell below threshold
+        if (totalRemaining < bakingSupplyThreshold) {
+          const shouldNotify = await shouldCreateNotification(auth.currentUser.uid, 'low_stock_baking_supply');
+          if (shouldNotify) {
+            // Get previous total to check if this is a new low stock condition
+            const previousTotal = totalRemaining + totalDeducted;
+            if (previousTotal >= bakingSupplyThreshold) {
+              await addNotification(
+                auth.currentUser.uid,
+                'low_stock_baking_supply',
+                'Baking Supply Low Stock Alert',
+                `${supplyName} is running low. Current quantity: ${totalRemaining} (threshold: ${bakingSupplyThreshold})`,
+                {
+                  productName: supplyName,
+                  itemType: 'bakingSupply',
+                  stockLevel: totalRemaining,
+                  threshold: bakingSupplyThreshold,
+                }
+              );
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error("Error creating low stock notification for baking supply:", notificationError);
+        // Don't fail the sale if notification fails
+      }
+    }
   } catch (error) {
     console.error("Error applying baking supply inventory deduction:", error);
     throw error;
@@ -195,12 +237,14 @@ export const applyFIFOInventoryDeduction = async (itemName: string, quantity: nu
     
     // Update the inventory collection's stock field
     if (totalDeducted > 0) {
-      // Get user's low stock threshold from settings
+      // Get user's low stock threshold from settings for finished products
       let lowStockThreshold = 5; // default value
       if (auth.currentUser) {
         try {
           const userSettings = await getUserSettings(auth.currentUser.uid);
-          lowStockThreshold = userSettings.notifications?.lowStockThreshold ?? 5;
+          // Use the new finishedProductThreshold, fall back to legacy lowStockThreshold
+          lowStockThreshold = userSettings.notifications?.finishedProductThreshold ?? 
+            userSettings.notifications?.lowStockThreshold ?? 5;
         } catch (error) {
           console.error("Error fetching user settings for low stock threshold:", error);
           // Use default value if settings fetch fails

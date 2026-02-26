@@ -2,6 +2,7 @@ import { getSales, filterSalesByDateRange } from "./salesService";
 import { getExpenses, filterExpensesByDateRange } from "./expenseService";
 import { getPurchases, filterPurchasesByDateRange } from "./purchaseService";
 import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceOfferedService";
+import { getBakingSupplyPurchases, filterBakingSupplyPurchasesByDateRange } from "./bakingSupplyPurchaseService";
 
 // Types for financial data
 export interface FinancialSummary {
@@ -54,6 +55,11 @@ const calculateCOGSForSale = async (
   allPurchases: any[]
 ): Promise<number> => {
   try {
+    // Skip COGS calculation for baking supply sales - they are handled separately
+    if (sale.itemType === "bakingSupply") {
+      return 0;
+    }
+    
     // Get purchases for this product, sorted by date (oldest first for FIFO)
     const productPurchases = allPurchases
       .filter(p => 
@@ -87,6 +93,29 @@ const calculateCOGSForSale = async (
   }
 };
 
+// Calculate COGS from baking supply purchases
+const calculateBakingSupplyCOGS = (
+  bakingSupplyPurchases: any[],
+  startDate?: Date,
+  endDate?: Date
+): number => {
+  return bakingSupplyPurchases
+    .filter(p => {
+      // Only include received purchases
+      if (p.status !== "received") return false;
+      // Filter by date range if provided
+      if (startDate && endDate) {
+        const purchaseDate = new Date(p.date);
+        return purchaseDate >= startDate && purchaseDate <= endDate;
+      }
+      return true;
+    })
+    .reduce((sum, purchase) => {
+      // Calculate cost of all purchases in this period
+      return sum + (purchase.totalCost || (purchase.quantity * purchase.unitPrice));
+    }, 0);
+};
+
 // Get overall financial summary since the start of business
 export const getOverallFinancialSummary = async (): Promise<FinancialSummary> => {
   try {
@@ -94,8 +123,9 @@ export const getOverallFinancialSummary = async (): Promise<FinancialSummary> =>
     const expenses = await getExpenses();
     const purchases = await getPurchases();
     const servicesOffered = await getServicesOffered();
+    const bakingSupplyPurchases = await getBakingSupplyPurchases();
 
-    // Calculate total revenue from completed sales
+    // Calculate total revenue from completed sales (includes both products and baking supplies)
     const salesRevenue = sales
       .filter(sale => sale.status === "completed")
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
@@ -110,12 +140,16 @@ export const getOverallFinancialSummary = async (): Promise<FinancialSummary> =>
     // Calculate total expenses
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Calculate COGS using FIFO (services have COGS = 0)
-    let totalCOGS = 0;
+    // Calculate COGS for product sales using FIFO
+    let totalProductCOGS = 0;
     for (const sale of sales.filter(s => s.status === "completed")) {
       const cogs = await calculateCOGSForSale(sale, purchases);
-      totalCOGS += cogs;
+      totalProductCOGS += cogs;
     }
+
+    // Calculate COGS from baking supply purchases
+    const totalBakingSupplyCOGS = calculateBakingSupplyCOGS(bakingSupplyPurchases);
+    const totalCOGS = totalProductCOGS + totalBakingSupplyCOGS;
 
     // Calculate profits
     const grossProfit = revenue - totalCOGS;
@@ -144,8 +178,9 @@ export const getFinancialSummaryForDateRange = async (
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
     const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
+    const bakingSupplyPurchases = await filterBakingSupplyPurchasesByDateRange(startDate, endDate);
 
-    // Calculate total revenue from completed sales
+    // Calculate total revenue from completed sales (includes both products and baking supplies)
     const salesRevenue = sales
       .filter(sale => sale.status === "completed")
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
@@ -160,12 +195,16 @@ export const getFinancialSummaryForDateRange = async (
     // Calculate total expenses
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Calculate COGS using FIFO (services have COGS = 0)
-    let totalCOGS = 0;
+    // Calculate COGS for product sales using FIFO
+    let totalProductCOGS = 0;
     for (const sale of sales.filter(s => s.status === "completed")) {
       const cogs = await calculateCOGSForSale(sale, purchases);
-      totalCOGS += cogs;
+      totalProductCOGS += cogs;
     }
+
+    // Calculate COGS from baking supply purchases for this period
+    const totalBakingSupplyCOGS = calculateBakingSupplyCOGS(bakingSupplyPurchases, startDate, endDate);
+    const totalCOGS = totalProductCOGS + totalBakingSupplyCOGS;
 
     // Calculate profits
     const grossProfit = revenue - totalCOGS;
@@ -194,6 +233,7 @@ export const getDailyFinancialData = async (
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
     const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
+    const bakingSupplyPurchases = await filterBakingSupplyPurchasesByDateRange(startDate, endDate);
 
     // Create a map to aggregate data by date
     const dailyDataMap = new Map<string, DailyFinancialData>();
@@ -220,7 +260,7 @@ export const getDailyFinancialData = async (
       const dayData = dailyDataMap.get(dateKey)!;
       dayData.revenue += sale.totalAmount;
 
-      // Calculate COGS for this sale
+      // Calculate COGS for this sale (excludes baking supply sales)
       const cogs = await calculateCOGSForSale(sale, purchases);
       dayData.cogs += cogs;
     }
@@ -270,6 +310,31 @@ export const getDailyFinancialData = async (
       dayData.expenses += expense.amount;
     }
 
+    // Process baking supply purchases (add to COGS)
+    for (const purchase of bakingSupplyPurchases) {
+      if (purchase.status !== "received") continue;
+
+      const dateKey = purchase.date.toISOString().split('T')[0];
+      const purchaseDate = new Date(purchase.date);
+      purchaseDate.setHours(0, 0, 0, 0);
+
+      if (!dailyDataMap.has(dateKey)) {
+        dailyDataMap.set(dateKey, {
+          date: purchaseDate,
+          revenue: 0,
+          cogs: 0,
+          grossProfit: 0,
+          expenses: 0,
+          netProfit: 0,
+        });
+      }
+
+      const dayData = dailyDataMap.get(dateKey)!;
+      // Add baking supply purchase cost to COGS
+      const purchaseCost = purchase.totalCost || (purchase.quantity * purchase.unitPrice);
+      dayData.cogs += purchaseCost;
+    }
+
     // Calculate profits for each day
     for (const [dateKey, dayData] of dailyDataMap) {
       dayData.grossProfit = dayData.revenue - dayData.cogs;
@@ -296,6 +361,7 @@ export const getMonthlyFinancialData = async (
     const expenses = await filterExpensesByDateRange(startDate, endDate);
     const purchases = await filterPurchasesByDateRange(startDate, endDate);
     const servicesOffered = await filterServicesOfferedByDateRange(startDate, endDate);
+    const bakingSupplyPurchases = await filterBakingSupplyPurchasesByDateRange(startDate, endDate);
 
     // Create a map to aggregate data by month
     const monthlyDataMap = new Map<string, MonthlyFinancialData>();
@@ -326,7 +392,7 @@ export const getMonthlyFinancialData = async (
       const monthData = monthlyDataMap.get(monthKey)!;
       monthData.revenue += sale.totalAmount;
 
-      // Calculate COGS for this sale
+      // Calculate COGS for this sale (excludes baking supply sales)
       const cogs = await calculateCOGSForSale(sale, purchases);
       monthData.cogs += cogs;
     }
@@ -382,6 +448,35 @@ export const getMonthlyFinancialData = async (
 
       const monthData = monthlyDataMap.get(monthKey)!;
       monthData.expenses += expense.amount;
+    }
+
+    // Process baking supply purchases (add to COGS)
+    for (const purchase of bakingSupplyPurchases) {
+      if (purchase.status !== "received") continue;
+
+      const purchaseDate = new Date(purchase.date);
+      const month = purchaseDate.getMonth() + 1;
+      const year = purchaseDate.getFullYear();
+      const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+
+      if (!monthlyDataMap.has(monthKey)) {
+        const firstDayOfMonth = new Date(year, month - 1, 1);
+        monthlyDataMap.set(monthKey, {
+          date: firstDayOfMonth,
+          month,
+          year,
+          revenue: 0,
+          cogs: 0,
+          expenses: 0,
+          grossProfit: 0,
+          netProfit: 0,
+        });
+      }
+
+      const monthData = monthlyDataMap.get(monthKey)!;
+      // Add baking supply purchase cost to COGS
+      const purchaseCost = purchase.totalCost || (purchase.quantity * purchase.unitPrice);
+      monthData.cogs += purchaseCost;
     }
 
     // Calculate profits for each month

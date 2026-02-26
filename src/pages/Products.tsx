@@ -53,6 +53,12 @@ import {
   deleteBakingSupply,
 } from "@/services/bakingSupplyService";
 
+// 🔥 Baking Supply Inventory from batches
+import {
+  getBakingSupplyInventoryFromBatches,
+  BakingSupplyInventoryItem,
+} from "@/services/bakingSupplyPurchaseService";
+
 // 🔥 Inventory
 import { getInventory } from "@/services/inventoryService";
 
@@ -75,10 +81,13 @@ import { useSettings } from "@/contexts/SettingsContext";
 export default function Products() {
   const { settings } = useSettings();
   const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
+  const bakingSupplyThreshold = settings?.notifications?.bakingSupplyThreshold ?? settings?.notifications?.lowStockThreshold ?? 10;
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [bakingSupplies, setBakingSupplies] = useState<BakingSupply[]>([]);
+  // Baking supply inventory from batches (for accurate stock status)
+  const [bakingSupplyInventory, setBakingSupplyInventory] = useState<BakingSupplyInventoryItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -110,12 +119,11 @@ export default function Products() {
     price: "",
   });
 
-  // Baking supply form state
+  // Baking supply form state - quantity removed, will be tracked via inventory batches
   const [bakingSupplyFormData, setBakingSupplyFormData] = useState({
     name: "",
     category: "",
     salePrice: "",
-    quantity: "",
     unit: "",
   });
 
@@ -140,6 +148,23 @@ export default function Products() {
     };
   };
 
+  // 🔹 Helper function to get baking supply inventory status from batches
+  const getBakingSupplyInventoryStatus = (supplyName: string): { status: "active" | "low_stock" | "out_of_stock"; quantity?: number } => {
+    const supplyItem = bakingSupplyInventory.find(item => item.supplyName === supplyName);
+    if (!supplyItem) {
+      return { status: "out_of_stock", quantity: 0 };
+    }
+    // Map inventory status to our status type
+    if (supplyItem.status === "in_stock") {
+      return { status: "active", quantity: supplyItem.quantityRemaining };
+    }
+    // For low_stock and out_of_stock, return as is
+    return {
+      status: supplyItem.status as "low_stock" | "out_of_stock",
+      quantity: supplyItem.quantityRemaining
+    };
+  };
+
   // 🔹 Fetch products, services, and baking supplies
   const fetchProducts = async () => {
     try {
@@ -160,6 +185,10 @@ export default function Products() {
       setBakingSupplies(bakingSuppliesList);
       setBakingSuppliesCategories(bakingSuppliesCategoryList);
       setInventory(inventoryList);
+
+      // Fetch baking supply inventory from batches for accurate stock status
+      const bakingSupplyInv = await getBakingSupplyInventoryFromBatches(bakingSupplyThreshold);
+      setBakingSupplyInventory(bakingSupplyInv);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -245,7 +274,6 @@ export default function Products() {
       name: "",
       category: "",
       salePrice: "",
-      quantity: "",
       unit: "",
     });
     setEditingBakingSupply(null);
@@ -260,7 +288,8 @@ export default function Products() {
       name: bakingSupplyFormData.name,
       category: bakingSupplyFormData.category,
       salePrice: Number(bakingSupplyFormData.salePrice),
-      quantity: Number(bakingSupplyFormData.quantity),
+      purchasePrice: 0, // Will be set when purchasing
+      quantity: 0, // Tracked via inventory batches
       unit: bakingSupplyFormData.unit,
       status: "in_stock",
       createdAt: new Date(),
@@ -277,7 +306,6 @@ export default function Products() {
       name: bakingSupplyFormData.name,
       category: bakingSupplyFormData.category,
       salePrice: Number(bakingSupplyFormData.salePrice),
-      quantity: Number(bakingSupplyFormData.quantity),
       unit: bakingSupplyFormData.unit,
     });
 
@@ -356,7 +384,6 @@ export default function Products() {
       name: bakingSupply.name,
       category: bakingSupply.category,
       salePrice: bakingSupply.salePrice.toString(),
-      quantity: bakingSupply.quantity.toString(),
       unit: bakingSupply.unit,
     });
     setIsBakingSupplyModalOpen(true);
@@ -522,7 +549,6 @@ export default function Products() {
                       Category
                     </TableHead>
                     <TableHead>Sale Price</TableHead>
-                    <TableHead>Quantity</TableHead>
                     <TableHead className="hidden sm:table-cell">Unit</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -530,7 +556,9 @@ export default function Products() {
                 </TableHeader>
 
                 <TableBody>
-                  {filteredBakingSupplies.map((bakingSupply) => (
+                  {filteredBakingSupplies.map((bakingSupply) => {
+                    const inventoryStatus = getBakingSupplyInventoryStatus(bakingSupply.name);
+                    return (
                     <TableRow key={bakingSupply.id}>
                       <TableCell className="font-medium">
                         {bakingSupply.name}
@@ -544,10 +572,6 @@ export default function Products() {
                         KSh {Number(bakingSupply.salePrice).toLocaleString()}
                       </TableCell>
 
-                      <TableCell>
-                        {bakingSupply.quantity}
-                      </TableCell>
-
                       <TableCell className="hidden sm:table-cell">
                         {bakingSupply.unit}
                       </TableCell>
@@ -555,16 +579,16 @@ export default function Products() {
                       <TableCell>
                         <Badge
                           className={
-                            bakingSupply.status === "in_stock"
+                            inventoryStatus.status === "active"
                               ? "bg-erp-green/10 text-erp-green hover:bg-erp-green/20"
-                              : bakingSupply.status === "low_stock"
-                              ? "bg-erp-yellow/10 text-erp-yellow hover:bg-erp-yellow/20"
+                              : inventoryStatus.status === "low_stock"
+                              ? "bg-erp-orange/10 text-erp-orange hover:bg-erp-orange/20"
                               : "bg-erp-red/10 text-erp-red hover:bg-erp-red/20"
                           }
                         >
-                          {bakingSupply.status === "in_stock"
+                          {inventoryStatus.status === "active"
                             ? "In Stock"
-                            : bakingSupply.status === "low_stock"
+                            : inventoryStatus.status === "low_stock"
                             ? "Low Stock"
                             : "Out of Stock"}
                         </Badge>
@@ -589,7 +613,8 @@ export default function Products() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -857,21 +882,6 @@ export default function Products() {
                 placeholder="0.00"
                 value={bakingSupplyFormData.salePrice}
                 onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, salePrice: e.target.value })}
-              />
-            </div>
-
-            {/* Quantity */}
-            <div className="space-y-2">
-              <Label htmlFor="bakingSupplyQuantity">Quantity</Label>
-              <Input
-                id="bakingSupplyQuantity"
-                name="quantity"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={bakingSupplyFormData.quantity}
-                onChange={(e) => setBakingSupplyFormData({ ...bakingSupplyFormData, quantity: e.target.value })}
               />
             </div>
 

@@ -1,4 +1,4 @@
-export type NotificationType = 'low_stock' | 'new_order' | 'daily_sales_summary' | 'expense_reminder';
+export type NotificationType = 'low_stock' | 'low_stock_baking_supply' | 'new_order' | 'daily_sales_summary' | 'expense_reminder';
 
 export interface Notification {
   id: string;
@@ -10,6 +10,7 @@ export interface Notification {
   createdAt: Date;
   data?: {
     productName?: string;
+    itemType?: 'product' | 'bakingSupply';
     stockLevel?: number;
     threshold?: number;
     orderId?: string;

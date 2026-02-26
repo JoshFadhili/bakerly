@@ -1,16 +1,32 @@
 import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart, Truck, Receipt, Wrench } from "lucide-react";
+import { ShoppingCart, Truck, Receipt, Wrench, Package, XCircle, Clock, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRecentActivities, Activity } from "@/services/dashboardService";
 
-type ActivityType = "sale" | "purchase" | "expense" | "service";
+type ActivityType = "sale" | "purchase" | "expense" | "service" | "finishedProduct";
 
 const activityConfig: Record<ActivityType, { icon: typeof ShoppingCart; color: string; label: string }> = {
   sale: { icon: ShoppingCart, color: "text-erp-blue bg-erp-blue/10", label: "Sale" },
   purchase: { icon: Truck, color: "text-erp-green bg-erp-green/10", label: "Purchase" },
   expense: { icon: Receipt, color: "text-erp-orange bg-erp-orange/10", label: "Expense" },
   service: { icon: Wrench, color: "text-purple-600 bg-purple-100", label: "Service" },
+  finishedProduct: { icon: Package, color: "text-amber-600 bg-amber-100", label: "Finished Product" },
+};
+
+// Helper to get status icon and color
+const getStatusConfig = (status?: string) => {
+  switch (status) {
+    case "completed":
+    case "received":
+      return { icon: CheckCircle, color: "text-erp-green" };
+    case "pending":
+      return { icon: Clock, color: "text-erp-orange" };
+    case "cancelled":
+      return { icon: XCircle, color: "text-erp-red" };
+    default:
+      return null;
+  }
 };
 
 export function RecentActivities() {
@@ -70,6 +86,9 @@ export function RecentActivities() {
           activities.map((activity, index) => {
             const config = activityConfig[activity.type];
             const Icon = config.icon;
+            const statusConfig = getStatusConfig(activity.status);
+            const StatusIcon = statusConfig?.icon;
+            
             return (
               <div key={index} className="flex items-start gap-3">
                 <div
@@ -81,7 +100,12 @@ export function RecentActivities() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 text-sm">
-                  <div className="font-medium">{config.label}:</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{config.label}:</span>
+                    {statusConfig && StatusIcon && (
+                      <StatusIcon className={cn("h-3.5 w-3.5", statusConfig.color)} />
+                    )}
+                  </div>
                   <div className="text-muted-foreground">{activity.description}</div>
                   <div className="text-xs text-muted-foreground mt-1">{activity.dateTime}</div>
                   {activity.amount && (

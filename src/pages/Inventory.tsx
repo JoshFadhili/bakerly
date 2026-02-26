@@ -53,7 +53,10 @@ import { useSettings } from "@/contexts/SettingsContext";
 
 export default function Inventory() {
   const { settings } = useSettings();
-  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
+  
+  // Use separate thresholds for finished products and baking supplies
+  const finishedProductThreshold = settings?.notifications?.finishedProductThreshold ?? settings?.notifications?.lowStockThreshold ?? 5;
+  const bakingSupplyThreshold = settings?.notifications?.bakingSupplyThreshold ?? settings?.notifications?.lowStockThreshold ?? 5;
   
   // Finished Products State
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,7 +138,7 @@ export default function Inventory() {
   // Fetch baking supply inventory from batches
   const fetchBakingSupplyInventory = async () => {
     try {
-      const inventoryData = await getBakingSupplyInventoryFromBatches(lowStockThreshold);
+      const inventoryData = await getBakingSupplyInventoryFromBatches(bakingSupplyThreshold);
       setBakingSupplyInventory(inventoryData);
     } catch (error) {
       console.error("Error loading baking supply inventory:", error);
@@ -156,7 +159,7 @@ export default function Inventory() {
       .includes(searchQuery.toLowerCase());
 
     const matchesFilter = filter === "all" ||
-      (filter === "low" && item.stock < lowStockThreshold);
+      (filter === "low" && item.stock < finishedProductThreshold);
 
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
 
@@ -197,7 +200,7 @@ export default function Inventory() {
   // Calculate stats for finished products
   const totalProducts = inventory.length;
   const totalStock = inventory.reduce((acc, item) => acc + item.stock, 0);
-  const lowStockCount = inventory.filter((item) => item.stock < lowStockThreshold).length;
+  const lowStockCount = inventory.filter((item) => item.stock < finishedProductThreshold).length;
   const totalStockValue = inventory.reduce((acc, item) => {
     const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
     return acc + stockValue;
@@ -220,7 +223,7 @@ export default function Inventory() {
       Number(adjustStockQuantity),
       selectedBatchId || undefined,
       adjustmentReason,
-      lowStockThreshold
+      finishedProductThreshold
     );
 
     setIsAdjustStockOpen(false);
@@ -290,7 +293,7 @@ export default function Inventory() {
       ...filteredInventory.map((item) => {
         const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
         const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
-        const isLowStock = item.stock < lowStockThreshold;
+        const isLowStock = item.stock < finishedProductThreshold;
         const status = isLowStock ? "Low Stock" : "In Stock";
         const lastUpdated = item.updatedAt
           ? item.updatedAt instanceof Date
@@ -546,7 +549,7 @@ export default function Inventory() {
                       {filteredInventory.map((item) => {
                         const stockValue = item.name ? (stockValues[item.name] || 0) : 0;
                         const unitCost = item.stock > 0 ? stockValue / item.stock : 0;
-                        const isLowStock = item.stock < lowStockThreshold;
+                        const isLowStock = item.stock < finishedProductThreshold;
 
                         return (
                           <TableRow key={item.id}>

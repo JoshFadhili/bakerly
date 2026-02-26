@@ -49,7 +49,9 @@ function getDefaultSettings(userId: string) {
     },
     notifications: {
       lowStockAlerts: true,
-      lowStockThreshold: 5,
+      lowStockThreshold: 5, // Legacy - kept for backward compatibility
+      finishedProductThreshold: 5, // Threshold for finished products (inventory)
+      bakingSupplyThreshold: 10, // Threshold for baking supplies (usually need more buffer)
       dailySalesSummary: true,
       newOrderNotifications: false,
       expenseReminders: true,

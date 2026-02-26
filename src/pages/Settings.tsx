@@ -64,6 +64,8 @@ export default function Settings() {
   // Notifications state
   const [lowStockAlerts, setLowStockAlerts] = useState(true);
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
+  const [finishedProductThreshold, setFinishedProductThreshold] = useState(5);
+  const [bakingSupplyThreshold, setBakingSupplyThreshold] = useState(10);
   const [dailySalesSummary, setDailySalesSummary] = useState(true);
   const [newOrderNotifications, setNewOrderNotifications] = useState(false);
   const [expenseReminders, setExpenseReminders] = useState(true);
@@ -102,6 +104,9 @@ export default function Settings() {
 
       setLowStockAlerts(settings.notifications?.lowStockAlerts ?? true);
       setLowStockThreshold(settings.notifications?.lowStockThreshold ?? 5);
+      setFinishedProductThreshold(settings.notifications?.finishedProductThreshold ?? 
+        settings.notifications?.lowStockThreshold ?? 5);
+      setBakingSupplyThreshold(settings.notifications?.bakingSupplyThreshold ?? 10);
       setDailySalesSummary(settings.notifications?.dailySalesSummary ?? true);
       setNewOrderNotifications(settings.notifications?.newOrderNotifications ?? false);
       setExpenseReminders(settings.notifications?.expenseReminders ?? true);
@@ -191,6 +196,8 @@ export default function Settings() {
       await updateNotifications({
         lowStockAlerts,
         lowStockThreshold,
+        finishedProductThreshold,
+        bakingSupplyThreshold,
         dailySalesSummary,
         newOrderNotifications,
         expenseReminders,
@@ -620,20 +627,37 @@ export default function Settings() {
                   />
                 </div>
                 {lowStockAlerts && (
-                  <div className="space-y-2 pl-4">
-                    <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
-                    <Input
-                      id="lowStockThreshold"
-                      type="number"
-                      min="1"
-                      value={lowStockThreshold}
-                      onChange={(e) => setLowStockThreshold(Number(e.target.value))}
-                      placeholder="Enter threshold (e.g., 5)"
-                      className="max-w-xs"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Alert when stock falls below this number
-                    </p>
+                  <div className="space-y-3 pl-4">
+                    <div>
+                      <Label htmlFor="finishedProductThreshold">Finished Products Threshold</Label>
+                      <Input
+                        id="finishedProductThreshold"
+                        type="number"
+                        min="1"
+                        value={finishedProductThreshold}
+                        onChange={(e) => setFinishedProductThreshold(Number(e.target.value))}
+                        placeholder="Enter threshold (e.g., 5)"
+                        className="max-w-xs mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Alert when finished product stock falls below this number
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="bakingSupplyThreshold">Baking Supplies Threshold</Label>
+                      <Input
+                        id="bakingSupplyThreshold"
+                        type="number"
+                        min="1"
+                        value={bakingSupplyThreshold}
+                        onChange={(e) => setBakingSupplyThreshold(Number(e.target.value))}
+                        placeholder="Enter threshold (e.g., 10)"
+                        className="max-w-xs mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Alert when baking supply quantity falls below this number
+                      </p>
+                    </div>
                   </div>
                 )}
                 <Separator />

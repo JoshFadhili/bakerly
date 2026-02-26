@@ -29,6 +29,8 @@ const getNotificationIcon = (type: Notification['type']) => {
   switch (type) {
     case 'low_stock':
       return <AlertTriangle className="h-4 w-4 text-erp-red" />;
+    case 'low_stock_baking_supply':
+      return <AlertTriangle className="h-4 w-4 text-erp-orange" />;
     case 'new_order':
       return <ShoppingCart className="h-4 w-4 text-erp-blue" />;
     case 'daily_sales_summary':
@@ -43,7 +45,9 @@ const getNotificationIcon = (type: Notification['type']) => {
 const getNotificationTypeLabel = (type: Notification['type']) => {
   switch (type) {
     case 'low_stock':
-      return 'Low Stock';
+      return 'Low Stock (Product)';
+    case 'low_stock_baking_supply':
+      return 'Low Stock (Supply)';
     case 'new_order':
       return 'New Order';
     case 'daily_sales_summary':

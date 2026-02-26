@@ -42,7 +42,8 @@ export default function EditSaleDialog({
 }: EditSaleDialogProps) {
   const { toast } = useToast();
   const { settings } = useSettings();
-  const lowStockThreshold = settings?.notifications?.lowStockThreshold ?? 5;
+  const finishedProductThreshold = settings?.notifications?.finishedProductThreshold ?? settings?.notifications?.lowStockThreshold ?? 5;
+  const bakingSupplyThreshold = settings?.notifications?.bakingSupplyThreshold ?? settings?.notifications?.lowStockThreshold ?? 5;
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -85,7 +86,7 @@ export default function EditSaleDialog({
 
   // Check if stock is low for product
   const isLowStock = (productName: string): boolean => {
-    return getStockForProduct(productName) < lowStockThreshold;
+    return getStockForProduct(productName) < finishedProductThreshold;
   };
 
   // Check if baking supply stock is low
@@ -162,7 +163,7 @@ export default function EditSaleDialog({
         const [productsList, inventoryList, bakingSuppliesList] = await Promise.all([
           getProducts(),
           getInventory(),
-          getBakingSuppliesForSale(),
+          getBakingSuppliesForSale(bakingSupplyThreshold),
         ]);
         setProducts(productsList);
         setFilteredProducts(productsList);
@@ -182,7 +183,7 @@ export default function EditSaleDialog({
       try {
         const [inventoryList, bakingSuppliesList] = await Promise.all([
           getInventory(),
-          getBakingSuppliesForSale(),
+          getBakingSuppliesForSale(bakingSupplyThreshold),
         ]);
         setInventory(inventoryList);
         setBakingSupplies(bakingSuppliesList);

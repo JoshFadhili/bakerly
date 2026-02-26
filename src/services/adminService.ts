@@ -157,18 +157,22 @@ export const deleteDepletedBatches = async (): Promise<number> => {
 
 // 🗑️ Delete all data from the system
 // This function deletes all records from all collections
+export const deleteAllFinishedProducts = async () => {
+  return deleteAllFromCollection("purchases");
+};
+
 export const deleteAll = async (): Promise<{ [key: string]: number }> => {
   const results: { [key: string]: number } = {};
   
   try {
     // Delete all collections in parallel
-    const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, purchasesCount, batchesCount, stockAdjustmentsCount, expensesCount, bakingSuppliesCount, bakingSupplyPurchasesCount, categoriesCount, recipesCount, recipeUsageLogsCount, settingsCount, notificationsCount] = await Promise.all([
+    const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, finishedProductsCount, batchesCount, stockAdjustmentsCount, expensesCount, bakingSuppliesCount, bakingSupplyPurchasesCount, categoriesCount, recipesCount, recipeUsageLogsCount, settingsCount, notificationsCount] = await Promise.all([
       deleteAllSales().catch(e => { console.error("Error deleting sales:", e); return 0; }),
       deleteAllServicesOffered().catch(e => { console.error("Error deleting services offered:", e); return 0; }),
       deleteAllProducts().catch(e => { console.error("Error deleting products:", e); return 0; }),
       deleteAllServices().catch(e => { console.error("Error deleting services:", e); return 0; }),
       deleteAllInventory().catch(e => { console.error("Error deleting inventory:", e); return 0; }),
-      deleteAllPurchases().catch(e => { console.error("Error deleting purchases:", e); return 0; }),
+      deleteAllFinishedProducts().catch(e => { console.error("Error deleting finished products:", e); return 0; }),
       deleteAllBatches().catch(e => { console.error("Error deleting batches:", e); return 0; }),
       deleteAllStockAdjustments().catch(e => { console.error("Error deleting stock adjustments:", e); return 0; }),
       deleteAllExpenses().catch(e => { console.error("Error deleting expenses:", e); return 0; }),
@@ -186,7 +190,7 @@ export const deleteAll = async (): Promise<{ [key: string]: number }> => {
     results.products = productsCount;
     results.services = servicesCount;
     results.inventory = inventoryCount;
-    results.purchases = purchasesCount;
+    results.finishedProducts = finishedProductsCount;
     results.batches = batchesCount;
     results.stockAdjustments = stockAdjustmentsCount;
     results.expenses = expensesCount;

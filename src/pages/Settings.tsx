@@ -33,6 +33,7 @@ import {
   deleteAllServices,
   deleteAllInventory,
   deleteAllPurchases,
+  deleteAllFinishedProducts,
   deleteAllBatches,
   deleteAllStockAdjustments,
   deleteAllExpenses,
@@ -288,7 +289,7 @@ export default function Settings() {
         case "all":
           const results = await deleteAll();
           const totalDeleted = Object.values(results).reduce((sum, count) => sum + count, 0);
-          successMessage = `Deleted all data: ${totalDeleted} total records (${results.sales} sales, ${results.products} products, ${results.services} services, ${results.inventory} inventory, ${results.purchases} purchases, ${results.batches} batches, ${results.stockAdjustments} stock adjustments, ${results.expenses} expenses, ${results.servicesOffered} services offered, ${results.bakingSupplies} baking supplies, ${results.bakingSupplyPurchases} baking supply purchases, ${results.categories} categories, ${results.recipes} recipes, ${results.recipeUsageLogs} recipe usage logs, ${results.settings} settings, ${results.notifications} notifications)`;
+          successMessage = `Deleted all data: ${totalDeleted} total records (${results.sales} sales, ${results.products} products, ${results.services} services, ${results.inventory} inventory, ${results.finishedProducts} finished products, ${results.batches} batches, ${results.stockAdjustments} stock adjustments, ${results.expenses} expenses, ${results.servicesOffered} services offered, ${results.bakingSupplies} baking supplies, ${results.bakingSupplyPurchases} baking supply purchases, ${results.categories} categories, ${results.recipes} recipes, ${results.recipeUsageLogs} recipe usage logs, ${results.settings} settings, ${results.notifications} notifications)`;
           break;
         case "depletedBatches":
           deletedCount = await deleteDepletedBatches();
@@ -314,9 +315,9 @@ export default function Settings() {
           deletedCount = await deleteAllInventory();
           successMessage = `Deleted ${deletedCount} inventory record(s)`;
           break;
-        case "purchases":
-          deletedCount = await deleteAllPurchases();
-          successMessage = `Deleted ${deletedCount} purchase order(s)`;
+        case "finishedProducts":
+          deletedCount = await deleteAllFinishedProducts();
+          successMessage = `Deleted ${deletedCount} finished product(s)`;
           break;
         case "batches":
           deletedCount = await deleteAllBatches();
@@ -960,11 +961,11 @@ export default function Settings() {
 
                 <Button
                   variant="destructive"
-                  onClick={() => handleAdminAction("purchases")}
+                  onClick={() => handleAdminAction("finishedProducts")}
                   className="w-full justify-start gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete All Purchase Orders
+                  Delete All Finished Products
                 </Button>
 
                 <Button

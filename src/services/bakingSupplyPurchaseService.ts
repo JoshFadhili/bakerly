@@ -325,6 +325,7 @@ export const filterBakingSupplyPurchasesByCostRange = async (
 // 📦 GET BAKING SUPPLY PURCHASES BY SUPPLY NAME (for FIFO tracking)
 export const getBakingSupplyPurchasesBySupplyName = async (supplyName: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    console.log("[getBakingSupplyPurchasesBySupplyName] Looking for:", supplyName);
     // Query all received purchases first, then filter by supply name
     // This avoids the need for a composite Firestore index
     const q = query(
@@ -332,6 +333,7 @@ export const getBakingSupplyPurchasesBySupplyName = async (supplyName: string): 
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);
+    console.log("[getBakingSupplyPurchasesBySupplyName] Total received purchases found:", snapshot.size);
 
     // Map and filter results
     const results = snapshot.docs.map((docSnap) => {
@@ -358,6 +360,7 @@ export const getBakingSupplyPurchasesBySupplyName = async (supplyName: string): 
     const filtered = results.filter(purchase =>
       purchase.supplyName?.trim().toLowerCase() === supplyName.trim().toLowerCase()
     );
+    console.log("[getBakingSupplyPurchasesBySupplyName] Filtered results for", supplyName, ":", filtered.length);
 
     // Sort by date ascending (oldest first for FIFO)
     return filtered.sort((a, b) => {
@@ -644,6 +647,31 @@ export const calculateBakingSupplyStockValueFromBatches = async (supplyName: str
     }, 0);
   } catch (error) {
     console.error("Error calculating baking supply stock value:", error);
+    return 0;
+  }
+};
+
+// 📊 CALCULATE AVERAGE UNIT PRICE FROM BATCHES (for recipe cost estimation)
+export const calculateAverageUnitPriceFromBatches = async (supplyName: string): Promise<number> => {
+  try {
+    const batches = await getBatchesBySupplyName(supplyName);
+    
+    // Calculate total quantity and total value
+    let totalQuantity = 0;
+    let totalValue = 0;
+    
+    for (const batch of batches) {
+      const remaining = batch.quantityRemaining !== undefined ? batch.quantityRemaining : batch.quantity;
+      if (remaining > 0) {
+        totalQuantity += remaining;
+        totalValue += remaining * batch.unitPrice;
+      }
+    }
+    
+    // Return average unit price (total value / total quantity)
+    return totalQuantity > 0 ? totalValue / totalQuantity : 0;
+  } catch (error) {
+    console.error("Error calculating average unit price:", error);
     return 0;
   }
 };

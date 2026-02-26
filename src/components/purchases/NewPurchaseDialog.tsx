@@ -21,8 +21,11 @@ import { Product } from "@/types/product";
 import { addPurchase, generateBatchId } from "@/services/purchaseService";
 import { getInventory, syncInventoryFromPurchase } from "@/services/inventoryService";
 import { InventoryItem } from "@/types/inventory";
-import { Search, Calendar, AlertCircle, Info, Hash, Package, TrendingDown } from "lucide-react";
+import { Search, Calendar, AlertCircle, Info, Hash, Package, TrendingDown, ChefHat } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getRecipeByProductId, checkStockForProduction, deductBakingSuppliesForProduction } from "@/services/recipeService";
+import { Recipe } from "@/types/recipe";
+import { toast } from "sonner";
 
 interface NewPurchaseDialogProps {
   isOpen: boolean;
@@ -43,6 +46,11 @@ export default function NewPurchaseDialog({
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Recipe-related state
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [stockCheck, setStockCheck] = useState<{ canProduce: boolean; insufficientSupplies: { name: string; required: number; available: number; unit: string }[] } | null>(null);
+  const [checkingStock, setCheckingStock] = useState(false);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -125,7 +133,33 @@ export default function NewPurchaseDialog({
     }
   }, [formData.itemPrice, formData.items, formData.status, selectedProduct]);
 
-  const handleProductSelect = (product: Product) => {
+  // Auto-calculate item price based on production cost when recipe is found
+  useEffect(() => {
+    if (recipe && recipe.totalProductionCost > 0) {
+      const productionCostPerUnit = recipe.totalProductionCost / recipe.yieldQuantity;
+      setFormData((prev) => ({
+        ...prev,
+        itemPrice: productionCostPerUnit.toFixed(2),
+      }));
+    }
+  }, [recipe]);
+
+  // Re-check stock when quantity changes
+  useEffect(() => {
+    const checkStockAvailability = async () => {
+      if (recipe && formData.items) {
+        setCheckingStock(true);
+        const check = await checkStockForProduction(recipe, Number(formData.items));
+        setStockCheck(check);
+        setCheckingStock(false);
+      }
+    };
+    
+    const debounceTimer = setTimeout(checkStockAvailability, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [formData.items, recipe]);
+
+  const handleProductSelect = async (product: Product) => {
     setSelectedProduct(product);
     setFormData((prev) => ({
       ...prev,
@@ -134,6 +168,25 @@ export default function NewPurchaseDialog({
     }));
     setSearchQuery(product.name);
     setShowDropdown(false);
+
+    // Check if there's a recipe for this product
+    try {
+      const productRecipe = await getRecipeByProductId(product.id!);
+      setRecipe(productRecipe);
+      setStockCheck(null);
+      
+      if (productRecipe) {
+        // Check stock availability for the default quantity (1)
+        setCheckingStock(true);
+        const check = await checkStockForProduction(productRecipe, 1);
+        setStockCheck(check);
+        setCheckingStock(false);
+      }
+    } catch (error) {
+      console.error("Error fetching recipe:", error);
+      setRecipe(null);
+      setStockCheck(null);
+    }
   };
 
   const handleInputChange = (
@@ -151,6 +204,48 @@ export default function NewPurchaseDialog({
     setLoading(true);
 
     try {
+      // If there's a recipe and status is "received", check and deduct baking supplies
+      console.log("[handleSubmit] Checking recipe for deduction. Recipe exists:", !!recipe, "Status:", formData.status);
+      if (recipe && formData.status === "received") {
+        // Re-check stock before deduction
+        const currentStockCheck = await checkStockForProduction(recipe, Number(formData.items));
+        
+        if (!currentStockCheck.canProduce) {
+          toast.error("Insufficient baking supplies", {
+            description: currentStockCheck.insufficientSupplies.map(s => `${s.name}: required ${s.required} ${s.unit}, available ${s.available} ${s.unit}`).join(", ")
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Deduct baking supplies
+        try {
+          const result = await deductBakingSuppliesForProduction(
+            recipe,
+            Number(formData.items),
+            formData.batchId
+          );
+          
+          if (!result.success) {
+            console.error("[handleSubmit] deductBakingSuppliesForProduction returned success: false, errors:", result.errors);
+            toast.error("Failed to deduct baking supplies", {
+              description: result.errors?.join(", ") || "Unknown error occurred. Check console for details."
+            });
+            setLoading(false);
+            return;
+          }
+          
+          toast.success(`Baking supplies deducted for ${formData.items} units of ${formData.itemName}`);
+        } catch (error) {
+          console.error("[handleSubmit] Error in deductBakingSuppliesForProduction:", error);
+          toast.error("Failed to deduct baking supplies. Purchase not added.", {
+            description: error instanceof Error ? error.message : "Unknown error. Check console for details."
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       // Add purchase
       await addPurchase({
         batchId: formData.batchId,
@@ -189,6 +284,8 @@ export default function NewPurchaseDialog({
       setSelectedProduct(null);
       setSearchQuery("");
       setShowDropdown(false);
+      setRecipe(null);
+      setStockCheck(null);
 onClose();
       onPurchaseAdded();
     } catch (error) {
@@ -203,7 +300,7 @@ onClose();
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Purchase</DialogTitle>
+          <DialogTitle>Finished Product</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -368,6 +465,86 @@ onClose();
             </div>
           )}
 
+          {/* Recipe Information */}
+          {selectedProduct && (
+            <div className="space-y-2">
+              {checkingStock ? (
+                <div className="p-3 rounded-md border bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                    <span className="text-sm text-blue-700 dark:text-blue-400">Checking recipe and stock...</span>
+                  </div>
+                </div>
+              ) : recipe ? (
+                <div className={`p-3 rounded-md border ${
+                  stockCheck?.canProduce 
+                    ? "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800"
+                    : "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800"
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <ChefHat className={`h-4 w-4 mt-0.5 ${
+                      stockCheck?.canProduce ? "text-green-500" : "text-red-500"
+                    }`} />
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        stockCheck?.canProduce ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
+                      }`}>
+                        Recipe Found
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Production Cost per unit: <span className="font-semibold">KSh {recipe.totalProductionCost.toLocaleString()}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ingredients: {recipe.ingredients.map(i => `${i.bakingSupplyName} (${i.quantity} ${i.unit})`).join(", ")}
+                      </p>
+                      {formData.status === "received" && (
+                        <>
+                          {stockCheck?.canProduce ? (
+                            <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                              ✓ Sufficient stock to produce {formData.items} units. Supplies will be deducted.
+                            </p>
+                          ) : (
+                            <div className="mt-1">
+                              <p className="text-xs text-red-600 dark:text-red-500 font-medium">
+                                ⚠️ Insufficient stock to produce {formData.items} units:
+                              </p>
+                              <ul className="text-xs text-red-600 dark:text-red-500 mt-1 list-disc list-inside">
+                                {stockCheck?.insufficientSupplies.map((supply, idx) => (
+                                  <li key={idx}>{supply.name}: required {supply.required} {supply.unit}, available {supply.available} {supply.unit}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-md border bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-500" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                        No Recipe Found
+                      </p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                        This product has no recipe defined. Baking supplies will not be automatically deducted.
+                        <br />
+                        <span 
+                          className="underline cursor-pointer hover:text-yellow-800"
+                          onClick={() => window.location.href = "/recipes"}
+                        >
+                          Create a recipe →
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Supplier */}
           <div className="space-y-2">
             <Label htmlFor="supplier">Supplier</Label>
@@ -464,7 +641,7 @@ onClose();
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Purchase"}
+              {loading ? "Adding..." : "Add Finished Product"}
             </Button>
           </DialogFooter>
         </form>

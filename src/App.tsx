@@ -20,6 +20,7 @@ import Products from "./pages/Products";
 import Inventory from "./pages/Inventory";
 import Purchases from "./pages/Purchases";
 import FinishedProducts from "./pages/FinishedProducts";
+import Recipes from "./pages/Recipes";
 import Expenses from "./pages/Expenses";
 import Finance from "./pages/Finance";
 import Reports from "./pages/Reports";
@@ -75,6 +76,11 @@ const App = () => (
                             <Route path="/finished-products" element={
                               <ProtectedRoute>
                                 <FinishedProducts />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/recipes" element={
+                              <ProtectedRoute>
+                                <Recipes />
                               </ProtectedRoute>
                             } />
                             <Route path="/expenses" element={

@@ -155,6 +155,7 @@ export default function NewSaleDialog({
         name: finishedProductData.itemName,
         salePrice: finishedProductData.unitPrice,
         category: "Finished Product",
+        status: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
       };

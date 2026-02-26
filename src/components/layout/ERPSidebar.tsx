@@ -47,12 +47,14 @@ const SidebarContent = ({ collapsed, onToggle }: SidebarContentProps) => {
     <div className="flex h-full flex-col bg-sidebar">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Box className="h-5 w-5 text-sidebar-primary-foreground" />
-        </div>
+        <img
+          src="/Bakerly Logo.png"
+          alt="Bakerly Logo"
+          className="h-9 w-9 rounded-lg object-contain"
+        />
         {!collapsed && (
           <span className="text-lg font-semibold text-sidebar-foreground">
-            ERP
+            Bakerly ERP
           </span>
         )}
       </div>

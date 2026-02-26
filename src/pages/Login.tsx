@@ -73,7 +73,14 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
       <Card className="w-full max-w-md p-8 shadow-xl border-border/50">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Business Bloom</h1>
+          <div className="flex justify-center mb-4">
+            <img
+              src="/Bakerly Logo.png"
+              alt="Bakerly Logo"
+              className="h-16 w-16 object-contain"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Bakerly App</h1>
           <p className="text-sm text-muted-foreground">
             {resetMode ? 'Reset your password' : 'Sign in to your account'}
           </p>
@@ -176,7 +183,7 @@ const Login = () => {
 
         <div className="mt-8 pt-6 border-t border-border/50">
           <p className="text-xs text-center text-muted-foreground">
-            Business Bloom ERP System
+            Bakerly App ERP System
           </p>
           <p className="text-xs text-center text-muted-foreground mt-1">
             Secure authentication powered by Firebase

@@ -170,6 +170,29 @@ To record a purchase that adds to your inventory:
 
 The inventory will be automatically updated with the new quantities.
 
+## Recording Baking Supply Purchases
+
+To record purchases of baking ingredients and supplies:
+
+1. Navigate to the **Purchases** page
+2. Click the **"New Baking Supply Purchase"** button
+3. Fill in the purchase details:
+   - **Supplier Information**: Supplier name and contact details
+   - **Purchase Date**: When the purchase was made
+   - **Invoice Number**: Reference number from supplier
+   - **Baking Supplies**: Add items purchased:
+     - Search or select a baking supply
+     - Enter quantity purchased
+     - Enter unit cost
+     - Add multiple items as needed
+   - **Total Amount**: Calculated automatically
+   - **Payment Method**: How you paid the supplier
+   - **Payment Status**: Paid, Partial, or Pending
+   - **Notes**: Any additional information
+4. Click **"Save Purchase"**
+
+Baking supply inventory will be automatically updated with the new quantities.
+
 ## Viewing Purchases
 
 1. Navigate to the **Purchases** page
@@ -178,20 +201,31 @@ The inventory will be automatically updated with the new quantities.
    - Date range
    - Supplier
    - Payment status
+   - Product type (finished product or baking supply)
 
 ## Managing Inventory
 
-### Viewing Stock Levels
+The Inventory page has two tabs:
+
+### Finished Products Inventory
 
 1. Navigate to the **Inventory** page
-2. View all products with their current stock levels
-3. Products below reorder level are highlighted
+2. Select the **"Finished Products"** tab
+3. View all finished products with their current stock levels
+4. Products below reorder level are highlighted
+
+### Baking Supplies Inventory
+
+1. Navigate to the **Inventory** page
+2. Select the **"Baking Supplies"** tab
+3. View all baking supplies with their current stock levels
+4. Supplies below reorder level are highlighted
 
 ### Viewing Batch Details
 
 For products with batch tracking:
 
-1. Click on a product in the Inventory page
+1. Click on a product or baking supply in the Inventory page
 2. View batch information including:
    - Batch number
    - Purchase date
@@ -203,7 +237,7 @@ For products with batch tracking:
 
 To manually adjust stock:
 
-1. Find the product in Inventory
+1. Find the product or baking supply in Inventory
 2. Click **"Adjust Stock"**
 3. Enter the new quantity
 4. Select adjustment reason (damage, loss, correction, etc.)
@@ -212,7 +246,7 @@ To manually adjust stock:
 
 ## Low Stock Alerts
 
-The system automatically alerts you when products fall below their reorder level:
+The system automatically alerts you when products or supplies fall below their reorder level:
 - Check the Dashboard for low stock notifications
 - Review the Inventory page for highlighted items
 - Create purchase orders to replenish stock
@@ -839,6 +873,160 @@ To reset settings to default:
 - Enable notifications for important alerts
 - Review settings periodically as your business grows
 - Backup your settings after major changes`
+  },
+  {
+    id: "recipes",
+    title: "Recipes Management",
+    icon: "👨‍🍳",
+    description: "Learn how to create and manage recipes for your bakery products",
+    content: `# Recipes Management
+
+## Overview
+The Recipes module allows you to create and manage detailed recipes for your bakery products. Each recipe defines the ingredients needed and the yield quantity, helping you calculate production costs accurately.
+
+## Creating a New Recipe
+To create a new recipe:
+
+1. Navigate to the **Recipes** page from the sidebar
+2. Click the **"Add Recipe"** button
+3. Fill in the recipe details:
+   - **Product**: Select the finished product this recipe is for
+   - **Ingredients**: Add all necessary ingredients:
+     - Search or select a baking supply
+     - Enter quantity needed
+     - Unit of measure (kg, liters, pieces, etc.)
+     - Click **"Add"** to include in recipe
+   - **Yield**: Enter the quantity of finished product this recipe produces
+   - **Yield Unit**: Unit for the yield quantity (pieces, kg, liters, etc.)
+   - **Notes**: Add any additional recipe details or instructions
+4. Click **"Save Recipe"**
+
+## Viewing Recipes
+1. Navigate to the **Recipes** page
+2. View all recipes in a table format
+3. See key information:
+   - Product name
+   - Number of ingredients
+   - Yield quantity
+   - Production cost per unit
+4. Click **"View"** to see detailed recipe information
+
+## Editing a Recipe
+1. Find the recipe in the Recipes page
+2. Click the **Edit** icon (pencil)
+3. Update the recipe details
+4. Click **"Save Changes"**
+
+## Deleting a Recipe
+1. Find the recipe in the list
+2. Click the **Delete** icon (trash)
+3. Confirm the deletion
+
+**Note**: You cannot delete recipes that are associated with finished products.
+
+## Recipe Cost Calculation
+The system automatically calculates production costs:
+
+- **Ingredient Costs**: Multiplies quantity by current unit price
+- **Total Cost**: Sums all ingredient costs
+- **Cost per Unit**: Total cost divided by yield quantity
+
+## Baking Supplies Integration
+Recipes work seamlessly with your baking supplies inventory:
+- Ingredients are linked to your baking supplies database
+- Cost calculations use real-time inventory prices
+- Helps in planning production based on available ingredients
+
+## Production Planning
+Use recipes for:
+- Calculating material requirements for production runs
+- Determining production costs for pricing decisions
+- Ensuring consistency in product quality
+- Planning inventory purchases based on production needs
+
+## Tips for Effective Recipe Management
+- Keep recipes up-to-date with accurate ingredient quantities
+- Regularly review and update costs based on market prices
+- Document any variations or special instructions
+- Test and refine recipes for optimal quality and cost efficiency`
+  },
+  {
+    id: "finished-products",
+    title: "Finished Products",
+    icon: "🍰",
+    description: "Learn how to manage your finished bakery products",
+    content: `# Finished Products Management
+
+## Overview
+The Finished Products module helps you track and manage the final baked goods that are ready for sale. This module integrates with your recipes, inventory, and sales systems.
+
+## Viewing Finished Products
+1. Navigate to the **Finished Products** page from the sidebar
+2. View all finished products in a table format
+3. See key information:
+   - Product name and description
+   - Production date and batch information
+   - Current stock levels
+   - Production cost per unit
+   - Selling price
+
+## Managing Production Batches
+Each finished product has batch information:
+- **Batch Number**: Unique identifier for tracking
+- **Production Date**: When the batch was baked
+- **Expiry Date**: When the products should be sold by
+- **Quantity Produced**: Total units in the batch
+- **Quantity Remaining**: Units still available for sale
+
+## Sending to Sales
+When products are ready for sale:
+
+1. Select the finished product batch
+2. Click **"Send to Sales"**
+3. Specify the quantity to send to sales
+4. Confirm the transfer
+
+This will automatically update your sales inventory and make the products available for sale.
+
+## Production Cost Tracking
+The system automatically tracks production costs:
+- Uses recipe cost information
+- Tracks costs by batch
+- Calculates total production costs per batch
+- Helps determine profitability of each product
+
+## Quality Control
+Monitor product quality by:
+- Tracking expiry dates
+- Managing batch quality notes
+- Recording any product defects
+- Maintaining production standards
+
+## Inventory Management
+- **Stock Levels**: Track how many products are available
+- **Batch Tracking**: Trace products back to their production batch
+- **Expiry Management**: Monitor when products need to be sold
+- **Reorder Alerts**: Get notified when stock is running low
+
+## Sales Integration
+Finished products integrate with the sales module:
+- Products become available for sale once sent to sales
+- Sales transactions deduct from finished product inventory
+- Real-time stock updates across all modules
+
+## Production Planning
+Use this module to:
+- Plan production based on sales forecasts
+- Monitor production efficiency
+- Track batch costs and profitability
+- Manage product quality and consistency
+
+## Tips for Effective Finished Products Management
+- Maintain accurate batch records
+- Monitor expiry dates closely to reduce waste
+- Track production costs for pricing decisions
+- Regularly review stock levels against sales demand
+- Keep production batches properly labeled and organized`
   },
   {
     id: "export-import",

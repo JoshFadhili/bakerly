@@ -55,6 +55,7 @@ import {
   calculateProductionCost,
 } from "@/services/recipeService";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { useRecipeDialog } from "@/contexts/RecipeDialogContext";
 
 export default function Recipes() {
   // State
@@ -70,6 +71,15 @@ export default function Recipes() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const { isNewRecipeDialogOpen: globalDialogOpen, closeNewRecipeDialog } = useRecipeDialog();
+
+  // Sync with global dialog state
+  useEffect(() => {
+    if (globalDialogOpen) {
+      setIsAddDialogOpen(true);
+      closeNewRecipeDialog();
+    }
+  }, [globalDialogOpen, closeNewRecipeDialog]);
 
   // Form state
   const [formData, setFormData] = useState<{

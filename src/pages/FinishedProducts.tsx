@@ -326,7 +326,7 @@ export default function FinishedProducts() {
               </Button>
               <Button variant="success" size="sm" onClick={() => setIsNewPurchaseDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">New Product</span>
+                <span className="hidden sm:inline">Add finished Product</span>
               </Button>
             </div>
           </div>

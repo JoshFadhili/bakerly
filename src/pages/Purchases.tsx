@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sortByDateTimeDesc } from "@/lib/sortingUtils";
+import { useBakingSupplyPurchaseDialog } from "@/contexts/BakingSupplyPurchaseDialogContext";
 
 export default function Purchases() {
   // Baking Supplies State
@@ -42,6 +43,15 @@ export default function Purchases() {
   const [isViewBakingSupplyDialogOpen, setIsViewBakingSupplyDialogOpen] = useState(false);
   const [isEditBakingSupplyDialogOpen, setIsEditBakingSupplyDialogOpen] = useState(false);
   const [selectedBakingSupplyPurchase, setSelectedBakingSupplyPurchase] = useState<BakingSupplyPurchase | null>(null);
+  const { isNewBakingSupplyPurchaseDialogOpen: globalDialogOpen, closeNewBakingSupplyPurchaseDialog } = useBakingSupplyPurchaseDialog();
+
+  // Sync with global dialog state
+  useEffect(() => {
+    if (globalDialogOpen) {
+      setIsNewBakingSupplyPurchaseDialogOpen(true);
+      closeNewBakingSupplyPurchaseDialog();
+    }
+  }, [globalDialogOpen, closeNewBakingSupplyPurchaseDialog]);
 
   // Filter states for Baking Supplies
   const [showFilters, setShowFilters] = useState(false);

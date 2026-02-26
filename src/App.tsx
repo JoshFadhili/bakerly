@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SaleDialogProvider } from "@/contexts/SaleDialogContext";
 import { ServiceOfferedDialogProvider } from "@/contexts/ServiceOfferedDialogContext";
 import { PurchaseDialogProvider } from "@/contexts/PurchaseDialogContext";
+import { RecipeDialogProvider } from "@/contexts/RecipeDialogContext";
+import { BakingSupplyPurchaseDialogProvider } from "@/contexts/BakingSupplyPurchaseDialogContext";
 import { ExpenseDialogProvider } from "@/contexts/ExpenseDialogContext";
 import { HelpDialogProvider } from "@/contexts/HelpDialogContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -39,7 +41,9 @@ const App = () => (
             <SaleDialogProvider>
               <ServiceOfferedDialogProvider>
                 <PurchaseDialogProvider>
-                  <ExpenseDialogProvider>
+                  <RecipeDialogProvider>
+                    <BakingSupplyPurchaseDialogProvider>
+                      <ExpenseDialogProvider>
                     <HelpDialogProvider>
                       <TooltipProvider>
                         <Toaster />
@@ -109,10 +113,12 @@ const App = () => (
                         </BrowserRouter>
                       </TooltipProvider>
                     </HelpDialogProvider>
-                  </ExpenseDialogProvider>
-                </PurchaseDialogProvider>
-              </ServiceOfferedDialogProvider>
-            </SaleDialogProvider>
+                    </ExpenseDialogProvider>
+                  </BakingSupplyPurchaseDialogProvider>
+                </RecipeDialogProvider>
+              </PurchaseDialogProvider>
+            </ServiceOfferedDialogProvider>
+          </SaleDialogProvider>
           </NotificationProvider>
         </SettingsProvider>
       </AuthProvider>

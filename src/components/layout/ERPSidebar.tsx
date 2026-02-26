@@ -26,7 +26,7 @@ const menuItems = [
   { icon: ShoppingCart, label: "Sales", path: "/sales" },
   { icon: Package, label: "Product, Services & Baking Supply details", path: "/products" },
   { icon: Warehouse, label: "Inventory", path: "/inventory" },
-  { icon: Truck, label: "Purchases", path: "/purchases" },
+  { icon: Truck, label: "Baking supply purchases", path: "/purchases" },
   { icon: Cake, label: "Finished Products", path: "/finished-products" },
   { icon: ChefHat, label: "Recipes", path: "/recipes" },
   { icon: Receipt, label: "Expenses", path: "/expenses" },

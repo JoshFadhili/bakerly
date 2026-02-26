@@ -210,7 +210,7 @@ export default function Purchases() {
   const totalBakingSupplyCost = bakingSupplyPurchases.reduce((acc, p) => acc + p.totalCost, 0);
 
   return (
-    <ERPLayout title="Purchases" subtitle="Track baking supply purchases and supplier orders">
+    <ERPLayout title="Baking Supply Purchases" subtitle="Track baking supply purchases and supplier orders">
       {/* Summary Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-erp-blue">

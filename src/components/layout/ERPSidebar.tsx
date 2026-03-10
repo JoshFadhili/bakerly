@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: ShoppingCart, label: "Sales", path: "/sales" },
   { icon: Package, label: "Product, Services & Baking Supply details", path: "/products" },
   { icon: Warehouse, label: "Inventory", path: "/inventory" },

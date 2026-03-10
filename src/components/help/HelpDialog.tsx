@@ -4,12 +4,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { helpTopics } from "@/lib/helpDocumentation";
 import { useHelpDialog } from "@/contexts/HelpDialogContext";
-import { X, Search, ArrowLeft } from "lucide-react";
+import { X, Search, ArrowLeft, MessageSquare } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 
+const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfxULTsaVjBHo4J-fwNQxm_lRaRTM9pcpFW_zHhILbFeF5itg/viewform?embedded=true";
+
 export function HelpDialog() {
-  const { isHelpOpen, closeHelpDialog, selectedTopic, selectTopic } = useHelpDialog();
+  const { isHelpOpen, closeHelpDialog, selectedTopic, selectTopic, isFeedbackOpen } = useHelpDialog();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTopics = useMemo(() => {
@@ -98,15 +100,33 @@ export function HelpDialog() {
   };
 
   return (
-    <Dialog open={isHelpOpen} onOpenChange={closeHelpDialog}>
+    <Dialog open={isHelpOpen} onOpenChange={(open) => !open && closeHelpDialog()}>
       <DialogContent className="max-w-4xl max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border bg-muted/50">
           <DialogTitle className="text-xl font-semibold">
-            {selectedTopicData ? selectedTopicData.title : "Help & Documentation"}
+            {selectedTopicData ? selectedTopicData.title : isFeedbackOpen ? "Feedback" : "Help & Documentation"}
           </DialogTitle>
         </DialogHeader>
 
-        {selectedTopicData ? (
+        {isFeedbackOpen ? (
+          // Feedback tab with Google Form
+          <div className="flex flex-col h-[calc(85vh-73px)]">
+            <ScrollArea className="flex-1 w-full">
+              <iframe
+                src={GOOGLE_FORM_URL}
+                width="100%"
+                height="2187"
+                frameBorder="0"
+                marginHeight={0}
+                marginWidth={0}
+                title="Feedback Form"
+                className="w-full"
+              >
+                Loading...
+              </iframe>
+            </ScrollArea>
+          </div>
+        ) : selectedTopicData ? (
           // View single topic
           <div className="flex flex-col h-[calc(85vh-73px)]">
             <div className="px-6 py-3 border-b border-border bg-muted/30">
@@ -134,51 +154,82 @@ export function HelpDialog() {
             </ScrollArea>
           </div>
         ) : (
-          // View all topics
-          <div className="flex flex-col h-[calc(85vh-73px)]">
+          // View all topics with tabs
+          <Tabs defaultValue="topics" className="flex flex-col h-[calc(85vh-73px)]">
             <div className="px-6 py-4 border-b border-border bg-muted/30">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search help topics..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="topics" className="flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  Help Topics
+                </TabsTrigger>
+                <TabsTrigger value="feedback" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Feedback
+                </TabsTrigger>
+              </TabsList>
             </div>
-            <ScrollArea className="flex-1 px-6 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredTopics.map((topic) => (
-                  <button
-                    key={topic.id}
-                    onClick={() => selectTopic(topic.id)}
-                    className="group flex flex-col p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all duration-200 text-left"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-3xl flex-shrink-0">{topic.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
-                          {topic.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {topic.description}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="self-start mt-3 text-xs">
-                      Click to view
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-              {filteredTopics.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No help topics found matching "{searchQuery}"</p>
+            
+            <TabsContent value="topics" className="flex-1 m-0">
+              <div className="px-6 py-4 border-b border-border bg-muted/30">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search help topics..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-              )}
-            </ScrollArea>
-          </div>
+              </div>
+              <ScrollArea className="flex-1 px-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredTopics.map((topic) => (
+                    <button
+                      key={topic.id}
+                      onClick={() => selectTopic(topic.id)}
+                      className="group flex flex-col p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all duration-200 text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-3xl flex-shrink-0">{topic.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                            {topic.title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {topic.description}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="self-start mt-3 text-xs">
+                        Click to view
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+                {filteredTopics.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No help topics found matching "{searchQuery}"</p>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="feedback" className="flex-1 m-0">
+              <ScrollArea className="h-full w-full">
+                <iframe
+                  src={GOOGLE_FORM_URL}
+                  width="100%"
+                  height="2187"
+                  frameBorder="0"
+                  marginHeight={0}
+                  marginWidth={0}
+                  title="Feedback Form"
+                >
+                  Loading...
+                </iframe>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>

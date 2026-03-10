@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app"
-import { getAuth } from "firebase/auth"
+import { getAuth, setPersistence, browserSessionPersistence, browserLocalPersistence } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 
@@ -15,5 +15,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
+
+// Configure session persistence for security
+// SESSION: Session cookie expires when browser is closed
+// LOCAL: Session persists until explicitly cleared (less secure)
+// For maximum security with timeout, we use SESSION persistence
+setPersistence(auth, browserSessionPersistence)
+  .catch((error) => {
+    console.error("Error setting auth persistence:", error)
+  })
+
 export const db = getFirestore(app)
 export const storage = getStorage(app)

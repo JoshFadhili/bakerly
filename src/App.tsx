@@ -31,6 +31,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import { HelpDialog } from "@/components/help/HelpDialog";
+import { FeedbackReminder } from "@/components/help/FeedbackReminder";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                         <Toaster />
                         <Sonner />
                         <HelpDialog />
+                        <FeedbackReminder />
                         <BrowserRouter>
                           <Routes>
                             <Route path="/" element={<Landing />} />

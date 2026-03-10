@@ -6,6 +6,8 @@ interface HelpDialogContextType {
   openHelpDialog: (topicId?: string) => void;
   closeHelpDialog: () => void;
   selectTopic: (topicId: string) => void;
+  openFeedbackDialog: () => void;
+  isFeedbackOpen: boolean;
 }
 
 const HelpDialogContext = createContext<HelpDialogContextType | undefined>(undefined);
@@ -13,6 +15,7 @@ const HelpDialogContext = createContext<HelpDialogContextType | undefined>(undef
 export function HelpDialogProvider({ children }: { children: ReactNode }) {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   const openHelpDialog = (topicId?: string) => {
     if (topicId) {
@@ -23,9 +26,15 @@ export function HelpDialogProvider({ children }: { children: ReactNode }) {
     setIsHelpOpen(true);
   };
 
+  const openFeedbackDialog = () => {
+    setIsFeedbackOpen(true);
+    setIsHelpOpen(true);
+  };
+
   const closeHelpDialog = () => {
     setIsHelpOpen(false);
     setSelectedTopic(null);
+    setIsFeedbackOpen(false);
   };
 
   const selectTopic = (topicId: string) => {
@@ -40,6 +49,8 @@ export function HelpDialogProvider({ children }: { children: ReactNode }) {
         openHelpDialog,
         closeHelpDialog,
         selectTopic,
+        openFeedbackDialog,
+        isFeedbackOpen,
       }}
     >
       {children}

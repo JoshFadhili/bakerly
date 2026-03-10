@@ -1,4 +1,4 @@
-import { HelpCircle, ShoppingCart, Wrench, Moon, Sun } from "lucide-react";
+import { HelpCircle, ShoppingCart, Wrench, Moon, Sun, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -29,7 +29,7 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   const { openNewServiceOfferedDialog } = useServiceOfferedDialog();
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { openHelpDialog } = useHelpDialog();
+  const { openHelpDialog, openFeedbackDialog } = useHelpDialog();
 
   const handleNewSaleClick = () => {
     // Navigate to sales page
@@ -85,6 +85,16 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
         </Button>
 
         <div className="ml-2 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            onClick={() => openFeedbackDialog()}
+            aria-label="Give Feedback"
+            title="Give us feedback"
+          >
+            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

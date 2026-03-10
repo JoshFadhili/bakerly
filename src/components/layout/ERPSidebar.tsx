@@ -91,7 +91,7 @@ const SidebarContent = ({ collapsed, onToggle }: SidebarContentProps) => {
             variant="ghost"
             size="sm"
             onClick={onToggle}
-            className="w-full justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="w-full justify-center text-gray-900 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />

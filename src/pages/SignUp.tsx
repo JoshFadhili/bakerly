@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Loader2, Lock, Mail, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { auth } from '@/lib/firebase';
 
 const SignUp = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signUp, loading: authLoading } = useAuth();
+  const { refreshSettings } = useSettings();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,6 +53,16 @@ const SignUp = () => {
 
     try {
       await signUp(email, password, firstName, lastName);
+      
+      // Small delay to ensure auth state is fully propagated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Refresh settings with the user ID from auth.currentUser
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        await refreshSettings(userId);
+      }
+      
       toast.success('Account created successfully!');
       navigate('/');
     } catch (err) {

@@ -20,7 +20,7 @@ interface SettingsContextType {
   updateNotifications: (notifications: Partial<NotificationPreferences>) => Promise<void>;
   updateSecurity: (security: Partial<SecuritySettings>) => Promise<void>;
   detectUserLocation: () => Promise<void>;
-  refreshSettings: () => Promise<void>;
+  refreshSettings: (userId?: string) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -133,11 +133,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const refreshSettings = async () => {
-    if (!user) return;
+  const refreshSettings = async (userId?: string) => {
+    const uid = userId || user?.uid;
+    if (!uid) return;
     
     try {
-      const userSettings = await getUserSettings(user.uid);
+      const userSettings = await getUserSettings(uid);
       setSettings(userSettings);
     } catch (error) {
       console.error('Error refreshing settings:', error);

@@ -71,8 +71,8 @@ const SidebarContent = ({ collapsed, onToggle }: SidebarContentProps) => {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-orange-600 dark:hover:text-orange-400"
                   )}
                 >
                   <item.icon className="h-5 w-5 shrink-0" />
@@ -86,12 +86,12 @@ const SidebarContent = ({ collapsed, onToggle }: SidebarContentProps) => {
 
       {/* Collapse Button (Desktop only) */}
       {onToggle && (
-        <div className="border-t border-sidebar-border p-3">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggle}
-            className="w-full justify-center text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="w-full justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function ERPSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            className="fixed left-4 top-4 z-40 lg:hidden"
+            className="fixed left-4 top-4 z-40 lg:hidden text-gray-700 dark:text-gray-300"
           >
             <Menu className="h-5 w-5" />
           </Button>

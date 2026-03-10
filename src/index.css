@@ -7,60 +7,61 @@
 
 @layer base {
   :root {
-    --background: 30 38% 98%;
-    --foreground: 28 10% 20%;
+    /* Light mode - Matching Landing page colors */
+    --background: 39 40% 98%; /* Cream/white like Landing */
+    --foreground: 28 10% 20%; /* Dark brown text */
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100%; /* Pure white */
     --card-foreground: 28 10% 20%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 28 10% 20%;
 
-    --primary: 30 60% 55%;
+    --primary: 25 95% 53%; /* Orange-500 like Landing */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 14% 96%;
+    --secondary: 30 14% 96%; /* Light cream */
     --secondary-foreground: 28 10% 20%;
 
-    --muted: 30 14% 96%;
+    --muted: 30 14% 94%; /* Muted cream */
     --muted-foreground: 28 5% 45%;
 
-    --accent: 30 14% 96%;
+    --accent: 25 95% 95%; /* Light orange tint */
     --accent-foreground: 28 10% 20%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 13% 91%;
+    --border: 30 13% 91%; /* Light gray border */
     --input: 30 13% 91%;
-    --ring: 30 60% 55%;
+    --ring: 25 95% 53%;
 
     --radius: 0.5rem;
 
-    /* Sidebar - Warm Brown */
-    --sidebar-background: 28 25% 20%;
-    --sidebar-foreground: 30 14% 96%;
-    --sidebar-primary: 30 60% 55%;
+    /* Sidebar - Matching Landing page navigation style */
+    --sidebar-background: 0 0% 100%; /* White like Landing nav */
+    --sidebar-foreground: 28 10% 20%;
+    --sidebar-primary: 25 95% 53%; /* Orange-500 */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 28 25% 25%;
-    --sidebar-accent-foreground: 30 14% 96%;
-    --sidebar-border: 28 25% 25%;
-    --sidebar-ring: 30 60% 55%;
-    --sidebar-muted: 28 10% 50%;
+    --sidebar-accent: 25 95% 95%; /* Light orange */
+    --sidebar-accent-foreground: 28 10% 20%;
+    --sidebar-border: 30 13% 91%; /* Light border like Landing */
+    --sidebar-ring: 25 95% 53%;
+    --sidebar-muted: 28 5% 45%;
 
-    /* Bakery Semantic Colors */
+    /* Bakery Semantic Colors - Orange-500/600 like Landing */
     --erp-blue: 200 70% 60%;
     --erp-green: 142 76% 36%;
     --erp-teal: 168 76% 42%;
     --erp-red: 0 72% 51%;
-    --erp-orange: 25 95% 53%;
+    --erp-orange: 25 95% 53%; /* Orange-500 */
     --erp-purple: 262 83% 58%;
 
-    /* KPI Card Gradients */
+    /* KPI Card Gradients - Orange theme like Landing */
     --kpi-sales: linear-gradient(
       135deg,
-      hsl(30 60% 55%) 0%,
-      hsl(30 60% 45%) 100%
+      hsl(25 95% 53%) 0%,
+      hsl(25 95% 43%) 100%
     );
     --kpi-revenue: linear-gradient(
       135deg,
@@ -78,12 +79,12 @@
       hsl(0 72% 42%) 100%
     );
 
-    /* Chart colors */
-    --chart-1: 30 60% 55%;
-    --chart-2: 38 80% 65%;
-    --chart-3: 142 76% 36%;
-    --chart-4: 25 95% 53%;
-    --chart-5: 200 70% 60%;
+    /* Chart colors - Orange theme like Landing */
+    --chart-1: 25 95% 53%; /* Orange-500 */
+    --chart-2: 38 80% 65%; /* Amber */
+    --chart-3: 142 76% 36%; /* Green */
+    --chart-4: 25 95% 53%; /* Orange-500 */
+    --chart-5: 200 70% 60%; /* Blue */
 
     /* Shadows */
     --shadow-2xs: 0 1px 1px 0 hsl(222 47% 11% / 0.03);
@@ -98,57 +99,59 @@
   }
 
   .dark {
-    --background: 28 25% 11%;
-    --foreground: 30 14% 96%;
+    /* Dark mode - Matching Landing page dark mode */
+    --background: 222 47% 11%; /* Gray-900 like Landing */
+    --foreground: 210 40% 98%; /* White text */
 
-    --card: 28 25% 16%;
-    --card-foreground: 30 14% 96%;
+    --card: 217 33% 17%; /* Gray-800 */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 28 25% 16%;
-    --popover-foreground: 30 14% 96%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 30 60% 60%;
-    --primary-foreground: 28 25% 11%;
+    --primary: 25 95% 60%; /* Orange-400 like Landing */
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 28 25% 22%;
-    --secondary-foreground: 30 14% 96%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 28 25% 22%;
-    --muted-foreground: 28 10% 65%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 28 25% 22%;
-    --accent-foreground: 30 14% 96%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 28 25% 22%;
-    --input: 28 25% 22%;
-    --ring: 30 60% 60%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 25 95% 60%;
 
-    --sidebar-background: 28 25% 11%;
-    --sidebar-foreground: 30 14% 96%;
-    --sidebar-primary: 30 60% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 28 25% 18%;
-    --sidebar-accent-foreground: 30 14% 96%;
-    --sidebar-border: 28 25% 18%;
-    --sidebar-ring: 30 60% 60%;
-    --sidebar-muted: 28 10% 50%;
+    /* Sidebar - Matching Landing page dark nav */
+    --sidebar-background: 222 47% 11%; /* Gray-900 */
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 25 95% 60%; /* Orange-400 */
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 217 33% 17%; /* Gray-800 */
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 22%;
+    --sidebar-ring: 25 95% 60%;
+    --sidebar-muted: 215 20% 65%;
 
-    /* Bakery Semantic Colors - Adjusted for dark mode */
+    /* Bakery Semantic Colors - Adjusted for dark mode - Orange-400 */
     --erp-blue: 200 70% 65%;
     --erp-green: 142 76% 45%;
     --erp-teal: 168 76% 50%;
     --erp-red: 0 72% 60%;
-    --erp-orange: 25 95% 60%;
+    --erp-orange: 25 95% 60%; /* Orange-400 */
     --erp-purple: 262 83% 65%;
 
-    /* KPI Card Gradients - Adjusted for dark mode */
+    /* KPI Card Gradients - Adjusted for dark mode - Orange-400 */
     --kpi-sales: linear-gradient(
       135deg,
-      hsl(30 60% 60%) 0%,
-      hsl(30 60% 50%) 100%
+      hsl(25 95% 60%) 0%,
+      hsl(25 95% 50%) 100%
     );
     --kpi-revenue: linear-gradient(
       135deg,
@@ -166,12 +169,12 @@
       hsl(0 72% 50%) 100%
     );
 
-    /* Chart colors - Adjusted for dark mode */
-    --chart-1: 30 60% 60%;
-    --chart-2: 38 80% 70%;
-    --chart-3: 142 76% 45%;
-    --chart-4: 25 95% 60%;
-    --chart-5: 200 70% 65%;
+    /* Chart colors - Adjusted for dark mode - Orange-400 */
+    --chart-1: 25 95% 60%; /* Orange-400 */
+    --chart-2: 38 80% 70%; /* Amber */
+    --chart-3: 142 76% 45%; /* Green */
+    --chart-4: 25 95% 60%; /* Orange-400 */
+    --chart-5: 200 70% 65%; /* Blue */
 
     /* Shadows - Adjusted for dark mode */
     --shadow-2xs: 0 1px 1px 0 hsl(210 40% 98% / 0.05);

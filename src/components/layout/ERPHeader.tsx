@@ -64,13 +64,13 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   };
 
   return (
-    <header className="flex flex-col gap-4 border-b border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+    <header className="flex flex-col gap-4 border-b border-orange-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
       <div className="pt-10 lg:pt-0">
-        <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
         )}
       </div>
 
@@ -88,12 +88,12 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="relative"
+            className="relative text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             onClick={() => openFeedbackDialog()}
             aria-label="Give Feedback"
             title="Give us feedback"
           >
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+            <MessageSquare className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
@@ -102,7 +102,7 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
             onClick={() => openHelpDialog()}
             aria-label="Help"
           >
-            <HelpCircle className="h-5 w-5 text-muted-foreground" />
+            <HelpCircle className="h-5 w-5 text-gray-600 dark:text-gray-300" />
           </Button>
           <NotificationDropdown />
 
@@ -110,13 +110,13 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            className="relative"
+            className="relative text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Toggle theme"
           >
             {theme === 'light' ? (
-              <Moon className="h-5 w-5 text-muted-foreground" />
+              <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
             ) : (
-              <Sun className="h-5 w-5 text-muted-foreground" />
+              <Sun className="h-5 w-5 text-gray-600 dark:text-gray-300" />
             )}
           </Button>
 

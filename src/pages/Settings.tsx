@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { commonTimezones } from "@/services/settingsService";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,10 +47,12 @@ import {
   deleteAllNotifications,
   deleteDepletedBatches,
   deleteAll,
+  deleteUserAccount,
 } from "@/services/adminService";
 
 export default function Settings() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { settings, loading, updateProfile, updateBusiness, updateNotifications, detectUserLocation } = useSettings();
   const [saving, setSaving] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
@@ -358,6 +361,14 @@ export default function Settings() {
         case "notifications":
           deletedCount = await deleteAllNotifications();
           successMessage = `Deleted ${deletedCount} notification(s)`;
+          break;
+        case "deleteAccount":
+          await deleteUserAccount();
+          successMessage = "Account deleted successfully. You will be redirected to the login page.";
+          // After successful account deletion, redirect to login
+          setTimeout(() => {
+            navigate("/login");
+          }, 2000);
           break;
         default:
           throw new Error("Invalid action");
@@ -889,6 +900,27 @@ export default function Settings() {
                 </p>
               </div>
 
+              {/* Delete Account Button - Most dangerous action */}
+              <div className="bg-red-950 border border-red-800 rounded-lg p-4">
+                <h3 className="font-semibold text-red-500 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Delete My Account
+                </h3>
+                <p className="text-sm text-red-400 mt-2">
+                  This will permanently delete your account, remove you from Firebase authentication, 
+                  and delete ALL your data including sales, products, services, inventory, purchases, 
+                  recipes, and more. This action CANNOT be undone.
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleAdminAction("deleteAccount")}
+                  className="w-full justify-center gap-2 mt-4 bg-red-700 hover:bg-red-800"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  Delete My Account
+                </Button>
+              </div>
+
               {/* Delete Everything Button - spans both columns with extra highlighting */}
               <div className="sm:col-span-2">
                 <Button
@@ -1065,10 +1097,12 @@ export default function Settings() {
                   <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
-                      {selectedAction === "all" ? "Confirm Delete All Data" : "Confirm Deletion"}
+                      {selectedAction === "deleteAccount" ? "Confirm Account Deletion" : selectedAction === "all" ? "Confirm Delete All Data" : "Confirm Deletion"}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      {selectedAction === "all" 
+                      {selectedAction === "deleteAccount" 
+                        ? "⚠️ WARNING: This will PERMANENTLY DELETE your entire account and ALL your data including sales, products, services, inventory, purchases, recipes, settings, and more. You will be removed from Bakerly App and will not be able to log in again. This action CANNOT be undone. Please enter your password to confirm you understand this is irreversible."
+                        : selectedAction === "all" 
                         ? "This will permanently delete ALL data from the system including sales, products, services, inventory, purchases, batches, stock adjustments, expenses, services offered, baking supplies, baking supply purchases, categories, recipes, recipe usage logs, settings, and notifications. This action cannot be undone. Please enter your password to confirm."
                         : "This action cannot be undone. Please enter your password to confirm."
                       }

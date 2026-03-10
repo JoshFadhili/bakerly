@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,14 +170,27 @@ const Login = () => {
               Back to Login
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => setResetMode(true)}
-              className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
-              disabled={loading}
-            >
-              Forgot your password?
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setResetMode(true)}
+                className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
+                disabled={loading}
+              >
+                Forgot your password?
+              </button>
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Don't have an account?{' '}
+                  <Link
+                    to="/signup"
+                    className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
+                  >
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            </>
           )}
         </div>
 

@@ -8,7 +8,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
 // Get current user's UID
@@ -221,5 +221,45 @@ export const deleteAll = async (): Promise<{ [key: string]: number }> => {
   } catch (error) {
     console.error("Error deleting all data:", error);
     throw new Error("Failed to delete all data");
+  }
+};
+
+// 🗑️ Delete user account and all associated data
+export const deleteUserAccount = async (): Promise<{ dataDeleted: boolean; accountDeleted: boolean }> => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error("No authenticated user found");
+    }
+
+    const userId = auth.currentUser.uid;
+    const userEmail = auth.currentUser.email;
+
+    if (!userEmail) {
+      throw new Error("User email not found");
+    }
+
+    // Step 1: Delete all user data from Firestore
+    console.log("Deleting all user data from Firestore...");
+    await deleteAll();
+    console.log("All user data deleted from Firestore");
+
+    // Step 2: Delete the user from Firebase Authentication
+    console.log("Deleting user account from Firebase Authentication...");
+    await deleteUser(auth.currentUser);
+    console.log("User account deleted successfully");
+
+    return {
+      dataDeleted: true,
+      accountDeleted: true,
+    };
+  } catch (error) {
+    console.error("Error deleting user account:", error);
+    
+    // If the error is that the user needs to reauthenticate, throw a specific message
+    if (error instanceof Error && error.message.includes("recently logged in")) {
+      throw new Error("Please log out and log back in before deleting your account, then try again.");
+    }
+    
+    throw new Error("Failed to delete account. Please ensure you have recently logged in.");
   }
 };

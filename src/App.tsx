@@ -28,6 +28,7 @@ import Finance from "./pages/Finance";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import SignUp from "./pages/SignUp";
 import { HelpDialog } from "@/components/help/HelpDialog";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
                         <BrowserRouter>
                           <Routes>
                             <Route path="/login" element={<Login />} />
+                            <Route path="/signup" element={<SignUp />} />
                             <Route path="/" element={
                               <ProtectedRoute>
                                 <Dashboard />

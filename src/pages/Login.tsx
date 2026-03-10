@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Loader2, Lock, Mail } from 'lucide-react';
+import { Loader2, Lock, Mail, Moon, Sun, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signIn, resetPassword, loading: authLoading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ const Login = () => {
   // Redirect authenticated users to the dashboard or the page they were trying to access
   useEffect(() => {
     if (user && !authLoading) {
-      const from = (location.state as any)?.from?.pathname || '/';
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     }
   }, [user, authLoading, navigate, location]);
@@ -35,7 +37,7 @@ const Login = () => {
     try {
       await signIn(email, password);
       toast.success('Login successful!');
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);
@@ -70,8 +72,30 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <Card className="w-full max-w-md p-8 shadow-xl border-border/50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+      {/* Back to Landing */}
+      <Link
+        to="/"
+        className="fixed top-4 left-4 p-2 rounded-lg text-muted-foreground hover:bg-accent dark:hover:bg-gray-700 transition-colors"
+        aria-label="Back to landing"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </Link>
+
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 p-2 rounded-lg text-muted-foreground hover:bg-accent dark:hover:bg-gray-700 transition-colors"
+        aria-label="Toggle theme"
+      >
+        {theme === 'dark' ? (
+          <Sun className="h-5 w-5" />
+        ) : (
+          <Moon className="h-5 w-5" />
+        )}
+      </button>
+
+      <Card className="w-full max-w-md p-8 shadow-xl border-border/50 dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <img
@@ -80,8 +104,8 @@ const Login = () => {
               className="h-16 w-16 object-contain"
             />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Bakerly App</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white mb-2">Bakerly App</h1>
+          <p className="text-sm text-muted-foreground dark:text-gray-400">
             {resetMode ? 'Reset your password' : 'Sign in to your account'}
           </p>
         </div>
@@ -102,7 +126,7 @@ const Login = () => {
 
         <form onSubmit={resetMode ? handleResetPassword : handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium">
+            <Label htmlFor="email" className="text-sm font-medium dark:text-gray-300">
               Email Address
             </Label>
             <div className="relative">
@@ -113,7 +137,7 @@ const Login = () => {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-10"
+                className="pl-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 required
                 disabled={loading || resetSuccess}
               />
@@ -122,7 +146,7 @@ const Login = () => {
 
           {!resetMode && (
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
+              <Label htmlFor="password" className="text-sm font-medium dark:text-gray-300">
                 Password
               </Label>
               <div className="relative">
@@ -133,7 +157,7 @@ const Login = () => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   required
                   disabled={loading}
                 />
@@ -143,7 +167,7 @@ const Login = () => {
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full bg-primary hover:bg-primary/90"
             disabled={loading || resetSuccess}
           >
             {loading ? (
@@ -164,7 +188,7 @@ const Login = () => {
             <button
               type="button"
               onClick={handleBackToLogin}
-              className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
+              className="text-sm text-primary hover:text-primary/80 transition-colors font-medium"
               disabled={loading}
             >
               Back to Login
@@ -174,17 +198,17 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setResetMode(true)}
-                className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
+                className="text-sm text-primary hover:text-primary/80 transition-colors font-medium"
                 disabled={loading}
               >
                 Forgot your password?
               </button>
               <div className="mt-4">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground dark:text-gray-400">
                   Don't have an account?{' '}
                   <Link
                     to="/signup"
-                    className="text-sm text-erp-blue hover:text-erp-blue/80 transition-colors font-medium"
+                    className="text-sm text-primary hover:text-primary/80 transition-colors font-medium"
                   >
                     Sign up
                   </Link>
@@ -194,11 +218,11 @@ const Login = () => {
           )}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-border/50">
-          <p className="text-xs text-center text-muted-foreground">
+        <div className="mt-8 pt-6 border-t border-border/50 dark:border-gray-700">
+          <p className="text-xs text-center text-muted-foreground dark:text-gray-500">
             Bakerly App ERP System
           </p>
-          <p className="text-xs text-center text-muted-foreground mt-1">
+          <p className="text-xs text-center text-muted-foreground dark:text-gray-500 mt-1">
             Secure authentication powered by Firebase
           </p>
         </div>

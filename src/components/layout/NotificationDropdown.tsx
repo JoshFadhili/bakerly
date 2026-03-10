@@ -32,7 +32,7 @@ const getNotificationIcon = (type: Notification['type']) => {
     case 'low_stock_baking_supply':
       return <AlertTriangle className="h-4 w-4 text-erp-orange" />;
     case 'new_order':
-      return <ShoppingCart className="h-4 w-4 text-erp-blue" />;
+      return <ShoppingCart className="h-4 w-4 text-primary" />;
     case 'daily_sales_summary':
       return <TrendingUp className="h-4 w-4 text-erp-green" />;
     case 'expense_reminder':

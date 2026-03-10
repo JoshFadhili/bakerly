@@ -16,6 +16,7 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Sales from "./pages/Sales";
 import Products from "./pages/Products";
@@ -52,9 +53,10 @@ const App = () => (
                         <HelpDialog />
                         <BrowserRouter>
                           <Routes>
+                            <Route path="/" element={<Landing />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<SignUp />} />
-                            <Route path="/" element={
+                            <Route path="/dashboard" element={
                               <ProtectedRoute>
                                 <Dashboard />
                               </ProtectedRoute>

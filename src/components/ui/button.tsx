@@ -17,9 +17,9 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // ERP Action Buttons
         success: "bg-erp-green text-primary-foreground hover:bg-erp-green/90 shadow-sm",
-        warning: "bg-erp-orange text-primary-foreground hover:bg-erp-orange/90 shadow-sm",
+        warning: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
         info: "bg-erp-teal text-primary-foreground hover:bg-erp-teal/90 shadow-sm",
-        sale: "bg-erp-blue text-primary-foreground hover:bg-erp-blue/90 shadow-sm",
+        sale: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
         expense: "bg-erp-red text-primary-foreground hover:bg-erp-red/90 shadow-sm",
       },
       size: {

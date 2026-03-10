@@ -7,7 +7,7 @@ import { getRecentActivities, Activity } from "@/services/dashboardService";
 type ActivityType = "sale" | "purchase" | "expense" | "service" | "finishedProduct";
 
 const activityConfig: Record<ActivityType, { icon: typeof ShoppingCart; color: string; label: string }> = {
-  sale: { icon: ShoppingCart, color: "text-erp-blue bg-erp-blue/10", label: "Sale" },
+  sale: { icon: ShoppingCart, color: "text-primary bg-primary/10", label: "Sale" },
   purchase: { icon: Truck, color: "text-erp-green bg-erp-green/10", label: "Purchase" },
   expense: { icon: Receipt, color: "text-erp-orange bg-erp-orange/10", label: "Expense" },
   service: { icon: Wrench, color: "text-purple-600 bg-purple-100", label: "Service" },

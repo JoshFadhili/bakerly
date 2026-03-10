@@ -115,7 +115,7 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user?.photoURL || ""} alt="User" />
-                  <AvatarFallback className="bg-erp-blue text-primary-foreground text-sm">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                     {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>

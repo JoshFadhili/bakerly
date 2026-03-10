@@ -12,7 +12,7 @@ interface KPICardProps {
 }
 
 const variantStyles: Record<KPIVariant, string> = {
-  sales: "bg-gradient-to-br from-erp-blue to-erp-blue/80",
+  sales: "bg-gradient-to-br from-primary to-primary/80",
   revenue: "bg-gradient-to-br from-erp-green to-erp-green/80",
   profit: "bg-gradient-to-br from-erp-teal to-erp-teal/80",
   alert: "bg-gradient-to-br from-erp-red to-erp-red/80",

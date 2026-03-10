@@ -6,7 +6,9 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
-  AuthError
+  AuthError,
+  signInWithPopup,
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -16,6 +18,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -172,6 +175,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      // Request additional profile info for better user experience
+      provider.addScope('profile');
+      provider.addScope('email');
+      
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if this is a new user (first time signing in with Google)
+      const userSettingsRef = doc(db, 'settings', user.uid);
+      const userSettingsDoc = await getDoc(userSettingsRef);
+
+      if (!userSettingsDoc.exists()) {
+        // New user - create default settings in Firestore
+        const googleName = user.displayName?.split(' ') || ['', ''];
+        const defaultSettings = {
+          ownerId: user.uid,
+          userId: user.uid,
+          profile: {
+            firstName: googleName[0] || '',
+            lastName: googleName.slice(1).join(' ') || '',
+            email: user.email || '',
+            phone: user.phoneNumber || '',
+          },
+          business: {
+            name: 'Your Business',
+            type: '',
+            address: '',
+            currency: 'KSh (Kenyan Shilling)',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          notifications: {
+            lowStockAlerts: true,
+            lowStockThreshold: 5,
+            finishedProductThreshold: 5,
+            bakingSupplyThreshold: 10,
+            dailySalesSummary: true,
+            newOrderNotifications: false,
+            expenseReminders: true,
+          },
+          security: {
+            twoFactorEnabled: false,
+          },
+        };
+
+        await setDoc(userSettingsRef, defaultSettings);
+      }
+    } catch (error) {
+      const authError = error as AuthError;
+      // Handle specific Google sign-in errors
+      if (authError.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign in was cancelled. Please try again.');
+      }
+      if (authError.code === 'auth/account-exists-with-different-credential') {
+        throw new Error('An account already exists with the same email but different sign-in method.');
+      }
+      throw new Error(getAuthErrorMessage(authError.code));
+    }
+  };
+
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     let userCredential;
     let newUser;
@@ -249,7 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
@@ -279,6 +344,10 @@ function getAuthErrorMessage(code: string): string {
       return 'Invalid verification code.';
     case 'auth/expired-action-code':
       return 'The password reset link has expired. Please request a new one.';
+    case 'auth/popup-closed-by-user':
+      return 'Sign in was cancelled. Please try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with the same email but different sign-in method.';
     default:
       return 'An authentication error occurred. Please try again.';
   }

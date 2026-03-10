@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Trash2, ChefHat, DollarSign, Package, AlertTriangle } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ChefHat, DollarSign, Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Recipe, RecipeIngredient } from "@/types/recipe";
 import { Product } from "@/types/product";
@@ -227,6 +227,18 @@ export default function Recipes() {
   // Calculate total production cost
   const totalProductionCost = calculateProductionCost(formData.ingredients);
 
+  // Helper function to get product sale price
+  const getProductSalePrice = (productId: string): number => {
+    const product = products.find(p => p.id === productId);
+    return product?.salePrice || 0;
+  };
+
+  // Helper function to calculate gross profit
+  const calculateGrossProfit = (recipe: Recipe): number => {
+    const salePrice = getProductSalePrice(recipe.productId);
+    return salePrice - recipe.totalProductionCost;
+  };
+
   // Handle add recipe
   const handleAddRecipe = async () => {
     try {
@@ -345,11 +357,14 @@ export default function Recipes() {
   const avgProductionCost = recipes.length > 0
     ? recipes.reduce((acc, r) => acc + r.totalProductionCost, 0) / recipes.length
     : 0;
+  const avgGrossProfit = recipes.length > 0
+    ? recipes.reduce((acc, r) => acc + calculateGrossProfit(r), 0) / recipes.length
+    : 0;
 
   return (
     <ERPLayout title="Recipe Details" subtitle="Manage recipes and production costs for your products">
       {/* Summary Cards */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="border-l-4 border-l-erp-blue">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -375,6 +390,15 @@ export default function Recipes() {
               <p className="text-sm text-muted-foreground">Avg. Production Cost</p>
             </div>
             <p className="text-2xl font-bold">KSh {avgProductionCost.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-500" />
+              <p className="text-sm text-muted-foreground">Avg. Gross Profit</p>
+            </div>
+            <p className="text-2xl font-bold">KSh {avgGrossProfit.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-purple-500">
@@ -430,6 +454,8 @@ export default function Recipes() {
                     <TableHead>Ingredients</TableHead>
                     <TableHead>Yield</TableHead>
                     <TableHead>Production Cost</TableHead>
+                    <TableHead>Sale Price</TableHead>
+                    <TableHead>Gross Profit</TableHead>
                     <TableHead>Cost per Unit</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -445,8 +471,12 @@ export default function Recipes() {
                         {recipe.yieldQuantity} {recipe.yieldUnit}
                       </TableCell>
                       <TableCell>KSh {recipe.totalProductionCost.toFixed(2)}</TableCell>
+                      <TableCell>KSh {getProductSalePrice(recipe.productId).toFixed(2)}</TableCell>
+                      <TableCell className="font-medium text-green-600">
+                        KSh {calculateGrossProfit(recipe).toFixed(2)}
+                      </TableCell>
                       <TableCell>
-                        KSh {(recipe.totalProductionCost / recipe.yieldQuantity).toFixed(2)}
+                        KSh {(recipe.totalProductionCost / recipe.yieldQuantity).toFixed(2)} / {recipe.yieldUnit}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -844,9 +874,31 @@ export default function Recipes() {
                   </p>
                 </div>
                 <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Cost per Unit</p>
+                  <p className="text-sm text-muted-foreground">Cost per Unit ({selectedRecipe.yieldUnit})</p>
                   <p className="font-medium">
                     KSh {(selectedRecipe.totalProductionCost / selectedRecipe.yieldQuantity).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Sale Price and Gross Profit */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Sale Price</p>
+                  <p className="font-medium">
+                    KSh {getProductSalePrice(selectedRecipe.productId).toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Production Cost</p>
+                  <p className="font-medium">
+                    KSh {selectedRecipe.totalProductionCost.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700">Gross Profit</p>
+                  <p className="font-medium text-green-700">
+                    KSh {calculateGrossProfit(selectedRecipe).toFixed(2)}
                   </p>
                 </div>
               </div>

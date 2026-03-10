@@ -11,6 +11,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { ServiceOffered } from "../types/serviceOffered";
 
 // 🔗 Collection reference
@@ -19,8 +20,10 @@ const servicesOfferedRef = collection(db, "servicesOffered");
 // ➕ ADD SERVICE OFFERED
 export const addServiceOffered = async (serviceOffered: ServiceOffered) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(servicesOfferedRef, {
       ...serviceOffered,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -30,10 +33,11 @@ export const addServiceOffered = async (serviceOffered: ServiceOffered) => {
   }
 };
 
-// 📥 GET SERVICES OFFERED
+// 📥 GET SERVICES OFFERED (user's own only)
 export const getServicesOffered = async (): Promise<ServiceOffered[]> => {
   try {
-    const q = query(servicesOfferedRef, orderBy("date", "desc"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(servicesOfferedRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {

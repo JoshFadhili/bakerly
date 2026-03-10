@@ -1,0 +1,227 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===========================
+    // HELPER FUNCTIONS
+    // ===========================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Get the current user's UID
+    function getUserId() {
+      return request.auth.uid;
+    }
+    
+    // Check if the document belongs to the current user
+    function isOwner(resourceOwnerId) {
+      return resourceOwnerId == getUserId();
+    }
+    
+    // Check if user is creating a document with their own UID as owner
+    function isCreatingOwnData() {
+      return request.resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // USER ACCOUNTS COLLECTION
+    // ===========================
+    
+    // Users can read/write their own user document
+    match /users/{userId} {
+      allow read: if isAuthenticated() && userId == getUserId();
+      allow create: if isAuthenticated() && userId == getUserId();
+      allow update, delete: if isAuthenticated() && userId == getUserId();
+      
+      // Subcollections under user document
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAuthenticated() && userId == getUserId();
+      }
+    }
+    
+    // ===========================
+    // USER SETTINGS (per-user)
+    // ===========================
+    
+    match /settings/{settingId} {
+      // Allow read if the setting belongs to the authenticated user
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      // Allow create if the user is setting their own ownerId
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      // Allow update if the user owns the document
+      allow update: if isAuthenticated() && resource.data.ownerId == getUserId();
+      // Allow delete if the user owns the document
+      allow delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // SALES COLLECTION
+    // ===========================
+    
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // SERVICES OFFERED COLLECTION
+    // ===========================
+    
+    match /servicesOffered/{serviceId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // PRODUCTS COLLECTION
+    // ===========================
+    
+    match /products/{productId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // SERVICES COLLECTION
+    // ===========================
+    
+    match /services/{serviceId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // INVENTORY COLLECTION
+    // ===========================
+    
+    match /inventory/{inventoryId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // INVENTORY BATCHES COLLECTION
+    // ===========================
+    
+    match /inventoryBatches/{batchId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // STOCK ADJUSTMENTS COLLECTION
+    // ===========================
+    
+    match /stockAdjustments/{adjustmentId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // PURCHASES COLLECTION
+    // ===========================
+    
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // EXPENSES COLLECTION
+    // ===========================
+    
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // BAKING SUPPLIES COLLECTION
+    // ===========================
+    
+    match /bakingSupplies/{supplyId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // BAKING SUPPLY PURCHASES COLLECTION
+    // ===========================
+    
+    match /bakingSupplyPurchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // CATEGORIES COLLECTION
+    // ===========================
+    
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // RECIPES COLLECTION
+    // ===========================
+    
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // RECIPE USAGE LOGS COLLECTION
+    // ===========================
+    
+    match /recipeUsageLogs/{logId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // NOTIFICATIONS COLLECTION
+    // ===========================
+    
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow create: if isAuthenticated() && isCreatingOwnData();
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
+    }
+    
+    // ===========================
+    // DASHBOARD STATS (user-specific aggregations)
+    // ===========================
+    
+    match /dashboardStats/{userId} {
+      allow read: if isAuthenticated() && userId == getUserId();
+      allow create, update, delete: if isAuthenticated() && userId == getUserId();
+    }
+    
+    // ===========================
+    // DEFAULT DENY (fallback)
+    // ===========================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

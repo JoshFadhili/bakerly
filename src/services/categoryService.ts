@@ -9,6 +9,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Category, CategoryType } from "@/types/category";
 
 const categoriesRef = collection(db, "categories");
@@ -18,20 +19,23 @@ export const addCategory = async (
   name: string,
   type: CategoryType
 ) => {
+  const ownerId = getCurrentUserIdOrThrow();
   await addDoc(categoriesRef, {
     name,
     type,
+    ownerId,
     createdAt: Timestamp.now(),
   });
 };
 
-// 📥 Get Categories by Type
+// 📥 Get Categories by Type (user's own only)
 export const getCategories = async (
   type?: CategoryType
 ): Promise<Category[]> => {
+  const ownerId = getCurrentUserIdOrThrow();
   const q = type
-    ? query(categoriesRef, where("type", "==", type))
-    : categoriesRef;
+    ? query(categoriesRef, where("ownerId", "==", ownerId), where("type", "==", type))
+    : query(categoriesRef, where("ownerId", "==", ownerId));
 
   const snapshot = await getDocs(q);
 

@@ -6,8 +6,11 @@ import {
   updateDoc,
   Timestamp,
   deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { BakingSupply } from "../types/bakingSupply";
 
 // 🔗 Collection reference
@@ -16,8 +19,10 @@ const bakingSuppliesRef = collection(db, "bakingSupplies");
 // ➕ ADD BAKING SUPPLY
 export const addBakingSupply = async (bakingSupply: BakingSupply) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(bakingSuppliesRef, {
       ...bakingSupply,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -27,10 +32,12 @@ export const addBakingSupply = async (bakingSupply: BakingSupply) => {
   }
 };
 
-// 📥 GET BAKING SUPPLIES
+// 📥 GET BAKING SUPPLIES (user's own only)
 export const getBakingSupplies = async (): Promise<BakingSupply[]> => {
   try {
-    const snapshot = await getDocs(bakingSuppliesRef);
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(bakingSuppliesRef, where("ownerId", "==", ownerId));
+    const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data() as Omit<BakingSupply, "id">;

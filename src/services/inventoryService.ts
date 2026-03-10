@@ -12,6 +12,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { getCurrentUserIdOrThrow } from "@/lib/userData";
 import { Purchase } from "@/types/purchase";
 import { addNotification, shouldCreateNotification } from "./notificationService";
 
@@ -23,7 +24,8 @@ const purchasesRef = collection(db, "purchases");
 // 🔍 Helper function to get product category by name
 export const getProductCategoryByName = async (productName: string): Promise<string | null> => {
   try {
-    const q = query(productsRef, where("name", "==", productName));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(productsRef, where("ownerId", "==", ownerId), where("name", "==", productName));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
@@ -38,19 +40,23 @@ export const getProductCategoryByName = async (productName: string): Promise<str
   }
 };
 
-// � Get all inventory items (from inventory collection)
+// 📥 Get all inventory items (user's own only)
 export const getInventory = async () => {
-  const snapshot = await getDocs(inventoryRef);
+  const ownerId = getCurrentUserIdOrThrow();
+  const q = query(inventoryRef, where("ownerId", "==", ownerId));
+  const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
   }));
 };
 
-// 📥 Get inventory by category (from inventory collection)
+// 📥 Get inventory by category (user's own only)
 export const getInventoryByCategory = async (category: string) => {
+  const ownerId = getCurrentUserIdOrThrow();
   const q = query(
     inventoryRef,
+    where("ownerId", "==", ownerId),
     where("category", "==", category)
   );
   const snapshot = await getDocs(q);

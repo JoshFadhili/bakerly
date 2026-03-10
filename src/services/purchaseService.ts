@@ -11,6 +11,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Purchase } from "../types/purchase";
 import { deleteDoc } from "firebase/firestore";
 
@@ -27,8 +28,10 @@ export const generateBatchId = (): string => {
 // ➕ ADD PURCHASE
 export const addPurchase = async (purchase: Purchase) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(purchasesRef, {
       ...purchase,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -38,10 +41,11 @@ export const addPurchase = async (purchase: Purchase) => {
   }
 };
 
-// 📥 GET PURCHASES
+// 📥 GET PURCHASES (user's own only)
 export const getPurchases = async (): Promise<Purchase[]> => {
   try {
-    const q = query(purchasesRef, orderBy("date", "desc"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(purchasesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {

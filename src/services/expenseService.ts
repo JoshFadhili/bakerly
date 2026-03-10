@@ -11,6 +11,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Expense } from "../types/expense";
 
 // 🔗 Collection reference
@@ -19,8 +20,10 @@ const expensesRef = collection(db, "expenses");
 // ➕ ADD EXPENSE
 export const addExpense = async (expense: Expense) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(expensesRef, {
       ...expense,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -30,10 +33,11 @@ export const addExpense = async (expense: Expense) => {
   }
 };
 
-// 📥 GET EXPENSES
+// 📥 GET EXPENSES (user's own only)
 export const getExpenses = async (): Promise<Expense[]> => {
   try {
-    const q = query(expensesRef, orderBy("date", "desc"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(expensesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {

@@ -12,6 +12,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { BakingSupplyPurchase } from "../types/bakingSupplyPurchase";
 import { getBakingSupplies } from "./bakingSupplyService";
 
@@ -28,8 +29,10 @@ export const generateBakingSupplyBatchId = (): string => {
 // ➕ ADD BAKING SUPPLY PURCHASE
 export const addBakingSupplyPurchase = async (purchase: BakingSupplyPurchase) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(bakingSupplyPurchasesRef, {
       ...purchase,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -39,10 +42,11 @@ export const addBakingSupplyPurchase = async (purchase: BakingSupplyPurchase) =>
   }
 };
 
-// 📥 GET BAKING SUPPLY PURCHASES
+// 📥 GET BAKING SUPPLY PURCHASES (user's own only)
 export const getBakingSupplyPurchases = async (): Promise<BakingSupplyPurchase[]> => {
   try {
-    const q = query(bakingSupplyPurchasesRef, orderBy("date", "desc"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(bakingSupplyPurchasesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {

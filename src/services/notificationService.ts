@@ -13,6 +13,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getCurrentUserIdOrThrow } from '@/lib/userData';
 import { Notification } from '@/types/notification';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
@@ -32,8 +33,11 @@ export async function addNotification(
 ): Promise<string> {
   try {
     console.log('Creating notification:', { userId, type, title, message, data });
+    // Use ownerId for consistency with security rules
+    const ownerId = getCurrentUserIdOrThrow();
     const docRef = await addDoc(collection(db, NOTIFICATIONS_COLLECTION), {
       userId,
+      ownerId,
       type,
       title,
       message,

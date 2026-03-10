@@ -885,7 +885,7 @@ export default function Settings() {
                   ⚠️ Warning: These actions are irreversible and will permanently delete data.
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  You must be logged in as joshamani77@gmail.com and provide your password to perform these actions.
+                  You must provide your password to perform these actions.
                 </p>
               </div>
 
@@ -1091,7 +1091,7 @@ export default function Settings() {
                         }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        You must be logged in as joshamani77@gmail.com
+                        You must provide your password to perform this action.
                       </p>
                     </div>
                   </div>

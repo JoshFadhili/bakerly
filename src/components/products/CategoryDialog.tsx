@@ -67,33 +67,49 @@ export default function CategoryDialog({
 
   const handleAddGoodsCategory = async () => {
     if (!newGoodsCategory.trim()) return;
-    await addCategory(newGoodsCategory, "goods");
-    setNewGoodsCategory("");
-    fetchCategories();
-    onCategoryChange?.();
+    try {
+      await addCategory(newGoodsCategory, "goods");
+      setNewGoodsCategory("");
+      fetchCategories();
+      onCategoryChange?.();
+    } catch (error) {
+      console.error("Error adding goods category:", error);
+    }
   };
 
   const handleAddServicesCategory = async () => {
     if (!newServicesCategory.trim()) return;
-    await addCategory(newServicesCategory, "services");
-    setNewServicesCategory("");
-    fetchCategories();
-    onCategoryChange?.();
+    try {
+      await addCategory(newServicesCategory, "services");
+      setNewServicesCategory("");
+      fetchCategories();
+      onCategoryChange?.();
+    } catch (error) {
+      console.error("Error adding services category:", error);
+    }
   };
 
   const handleAddBakingSuppliesCategory = async () => {
     if (!newBakingSuppliesCategory.trim()) return;
-    await addCategory(newBakingSuppliesCategory, "baking_supplies");
-    setNewBakingSuppliesCategory("");
-    fetchCategories();
-    onCategoryChange?.();
+    try {
+      await addCategory(newBakingSuppliesCategory, "baking_supplies");
+      setNewBakingSuppliesCategory("");
+      fetchCategories();
+      onCategoryChange?.();
+    } catch (error) {
+      console.error("Error adding baking supplies category:", error);
+    }
   };
 
   const handleDeleteCategory = async (id: string) => {
     if (!confirm("Delete this category?")) return;
-    await deleteCategory(id);
-    fetchCategories();
-    onCategoryChange?.();
+    try {
+      await deleteCategory(id);
+      fetchCategories();
+      onCategoryChange?.();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+    }
   };
 
   return (

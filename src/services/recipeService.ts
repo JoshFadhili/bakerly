@@ -13,6 +13,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Recipe, RecipeIngredient, RecipeUsageLog } from "../types/recipe";
 import { BakingSupply } from "../types/bakingSupply";
 import {
@@ -29,8 +30,10 @@ const bakingSuppliesRef = collection(db, "bakingSupplies");
 // Add a new recipe
 export const addRecipe = async (recipe: Omit<Recipe, "id">): Promise<string> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const docRef = await addDoc(recipesRef, {
       ...recipe,
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -41,10 +44,12 @@ export const addRecipe = async (recipe: Omit<Recipe, "id">): Promise<string> => 
   }
 };
 
-// Get all recipes
+// Get all recipes (user's own only)
 export const getRecipes = async (): Promise<Recipe[]> => {
   try {
-    const snapshot = await getDocs(recipesRef);
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(recipesRef, where("ownerId", "==", ownerId));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {

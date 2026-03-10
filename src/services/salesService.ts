@@ -10,6 +10,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Sale } from "../types/sale";
 import { deleteDoc } from "firebase/firestore";
 import { getPurchasesByProductName, updateBatchQuantity, addPurchase, restoreBatchQuantitiesForProduct } from "./purchaseService";
@@ -161,8 +162,10 @@ export const addSale = async (sale: Sale) => {
     const grossProfit = sale.totalAmount - cogs;
 
     // Add the sale record with COGS and Gross Profit
+    const ownerId = getCurrentUserIdOrThrow();
     const saleDoc = await addDoc(salesRef, {
       ...sale,
+      ownerId,
       cogs,
       grossProfit,
       createdAt: Timestamp.now(),

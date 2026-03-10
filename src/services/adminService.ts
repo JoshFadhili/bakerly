@@ -11,21 +11,27 @@ import { db } from "../lib/firebase";
 import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
+// Get current user's UID
+const getCurrentUserId = (): string => {
+  if (!auth.currentUser) {
+    throw new Error("No authenticated user found");
+  }
+  return auth.currentUser.uid;
+};
+
 // 🔐 Verify user password before allowing admin actions
 export const verifyAdminPassword = async (password: string): Promise<boolean> => {
   try {
-    if (!auth.currentUser?.email) {
+    if (!auth.currentUser) {
       throw new Error("No authenticated user found");
     }
 
-    // Check if the authenticated user is the admin (joshamani77@gmail.com)
-    if (auth.currentUser.email !== "joshamani77@gmail.com") {
-      throw new Error("You are not authorized to perform admin actions");
-    }
-
+    // Any authenticated user can manage their own data
+    // No longer restricted to specific email addresses
+    
     // Reauthenticate with the provided password
     const credential = EmailAuthProvider.credential(
-      auth.currentUser.email,
+      auth.currentUser.email!,
       password
     );
     await reauthenticateWithCredential(auth.currentUser, credential);
@@ -37,11 +43,15 @@ export const verifyAdminPassword = async (password: string): Promise<boolean> =>
   }
 };
 
-// 🗑️ Delete all documents from a collection
-const deleteAllFromCollection = async (collectionName: string): Promise<number> => {
+// 🗑️ Delete documents from a collection where ownerId matches current user
+const deleteFromCollection = async (collectionName: string): Promise<number> => {
   try {
+    const userId = getCurrentUserId();
     const collectionRef = collection(db, collectionName);
-    const snapshot = await getDocs(collectionRef);
+    
+    // Only query documents that belong to the current user
+    const q = query(collectionRef, where("ownerId", "==", userId));
+    const snapshot = await getDocs(q);
     
     const deletePromises = snapshot.docs.map((docSnap) =>
       deleteDoc(doc(db, collectionName, docSnap.id))
@@ -55,92 +65,98 @@ const deleteAllFromCollection = async (collectionName: string): Promise<number> 
   }
 };
 
-// 🗑️ Delete all sales
+// 🗑️ Delete all sales (user's own only)
 export const deleteAllSales = async () => {
-  return deleteAllFromCollection("sales");
+  return deleteFromCollection("sales");
 };
 
-// 🗑️ Delete all services offered
+// 🗑️ Delete all services offered (user's own only)
 export const deleteAllServicesOffered = async () => {
-  return deleteAllFromCollection("servicesOffered");
+  return deleteFromCollection("servicesOffered");
 };
 
-// 🗑️ Delete all products
+// 🗑️ Delete all products (user's own only)
 export const deleteAllProducts = async () => {
-  return deleteAllFromCollection("products");
+  return deleteFromCollection("products");
 };
 
-// 🗑️ Delete all services
+// 🗑️ Delete all services (user's own only)
 export const deleteAllServices = async () => {
-  return deleteAllFromCollection("services");
+  return deleteFromCollection("services");
 };
 
-// 🗑️ Delete all inventory records
+// 🗑️ Delete all inventory records (user's own only)
 export const deleteAllInventory = async () => {
-  return deleteAllFromCollection("inventory");
+  return deleteFromCollection("inventory");
 };
 
-// 🗑️ Delete all purchase orders
+// 🗑️ Delete all purchase orders (user's own only)
 export const deleteAllPurchases = async () => {
-  return deleteAllFromCollection("purchases");
+  return deleteFromCollection("purchases");
 };
 
-// 🗑️ Delete all batches
+// 🗑️ Delete all batches (user's own only)
 export const deleteAllBatches = async () => {
-  return deleteAllFromCollection("inventoryBatches");
+  return deleteFromCollection("inventoryBatches");
 };
 
-// 🗑️ Delete all stock adjustments
+// 🗑️ Delete all stock adjustments (user's own only)
 export const deleteAllStockAdjustments = async () => {
-  return deleteAllFromCollection("stockAdjustments");
+  return deleteFromCollection("stockAdjustments");
 };
 
-// 🗑️ Delete all expenses
+// 🗑️ Delete all expenses (user's own only)
 export const deleteAllExpenses = async () => {
-  return deleteAllFromCollection("expenses");
+  return deleteFromCollection("expenses");
 };
 
-// 🗑️ Delete all baking supplies
+// 🗑️ Delete all baking supplies (user's own only)
 export const deleteAllBakingSupplies = async () => {
-  return deleteAllFromCollection("bakingSupplies");
+  return deleteFromCollection("bakingSupplies");
 };
 
-// 🗑️ Delete all baking supply purchases
+// 🗑️ Delete all baking supply purchases (user's own only)
 export const deleteAllBakingSupplyPurchases = async () => {
-  return deleteAllFromCollection("bakingSupplyPurchases");
+  return deleteFromCollection("bakingSupplyPurchases");
 };
 
-// 🗑️ Delete all categories
+// 🗑️ Delete all categories (user's own only)
 export const deleteAllCategories = async () => {
-  return deleteAllFromCollection("categories");
+  return deleteFromCollection("categories");
 };
 
-// 🗑️ Delete all recipes
+// 🗑️ Delete all recipes (user's own only)
 export const deleteAllRecipes = async () => {
-  return deleteAllFromCollection("recipes");
+  return deleteFromCollection("recipes");
 };
 
-// 🗑️ Delete all recipe usage logs
+// 🗑️ Delete all recipe usage logs (user's own only)
 export const deleteAllRecipeUsageLogs = async () => {
-  return deleteAllFromCollection("recipeUsageLogs");
+  return deleteFromCollection("recipeUsageLogs");
 };
 
-// 🗑️ Delete all settings
+// 🗑️ Delete all settings (user's own only)
 export const deleteAllSettings = async () => {
-  return deleteAllFromCollection("settings");
+  return deleteFromCollection("settings");
 };
 
-// 🗑️ Delete all notifications
+// 🗑️ Delete all notifications (user's own only)
 export const deleteAllNotifications = async () => {
-  return deleteAllFromCollection("notifications");
+  return deleteFromCollection("notifications");
 };
 
-// 🗑️ Hide depleted batches (batches with 0 remaining items) from batch details view
-// This preserves purchase records while hiding them from the batch details tab
+// 🗑️ Hide depleted batches (user's own only)
 export const deleteDepletedBatches = async (): Promise<number> => {
   try {
+    const userId = getCurrentUserId();
     const batchesRef = collection(db, "purchases");
-    const q = query(batchesRef, where("itemsRemaining", "==", 0));
+    
+    // Only query batches that belong to the current user and have 0 remaining
+    const q = query(
+      batchesRef, 
+      where("ownerId", "==", userId),
+      where("itemsRemaining", "==", 0)
+    );
     const snapshot = await getDocs(q);
     
     const hidePromises = snapshot.docs.map((docSnap) =>
@@ -155,17 +171,16 @@ export const deleteDepletedBatches = async (): Promise<number> => {
   }
 };
 
-// 🗑️ Delete all data from the system
-// This function deletes all records from all collections
+// 🗑️ Delete all data from the system (user's own data only)
 export const deleteAllFinishedProducts = async () => {
-  return deleteAllFromCollection("purchases");
+  return deleteFromCollection("purchases");
 };
 
 export const deleteAll = async (): Promise<{ [key: string]: number }> => {
   const results: { [key: string]: number } = {};
   
   try {
-    // Delete all collections in parallel
+    // Delete all collections in parallel (user's own data only)
     const [salesCount, servicesOfferedCount, productsCount, servicesCount, inventoryCount, finishedProductsCount, batchesCount, stockAdjustmentsCount, expensesCount, bakingSuppliesCount, bakingSupplyPurchasesCount, categoriesCount, recipesCount, recipeUsageLogsCount, settingsCount, notificationsCount] = await Promise.all([
       deleteAllSales().catch(e => { console.error("Error deleting sales:", e); return 0; }),
       deleteAllServicesOffered().catch(e => { console.error("Error deleting services offered:", e); return 0; }),

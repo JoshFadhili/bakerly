@@ -5,8 +5,11 @@ import {
   doc,
   updateDoc,
   Timestamp,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Product } from "../types/product";
 import { deleteDoc } from "firebase/firestore";
 
@@ -16,10 +19,12 @@ const productsRef = collection(db, "products");
 // ➕ ADD PRODUCT
 export const addProduct = async (product: Product) => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     await addDoc(productsRef, {
       ...product,
-      createdAt: Timestamp.now(), // 🔥 handled here
-      updatedAt: Timestamp.now(), // 🔥 optional but recommended
+      ownerId,
+      createdAt: Timestamp.now(), 
+      updatedAt: Timestamp.now(), 
     });
   } catch (error) {
     console.error("Error adding product:", error);
@@ -27,10 +32,12 @@ export const addProduct = async (product: Product) => {
   }
 };
 
-// 📥 GET PRODUCTS
+// 📥 GET PRODUCTS (user's own only)
 export const getProducts = async (): Promise<Product[]> => {
   try {
-    const snapshot = await getDocs(productsRef);
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(productsRef, where("ownerId", "==", ownerId));
+    const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data() as Omit<Product, "id">;

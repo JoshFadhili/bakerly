@@ -8,14 +8,15 @@ import {
   createUserWithEmailAndPassword,
   AuthError
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -171,12 +172,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
+    let userCredential;
+    let newUser;
+    
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      newUser = userCredential.user;
     } catch (error) {
       const authError = error as AuthError;
       throw new Error(getAuthErrorMessage(authError.code));
+    }
+
+    // If we got here, auth succeeded. Now try to save to Firestore.
+    try {
+      // Small delay to ensure auth state is propagated
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Save user profile to Firestore
+      const userSettingsRef = doc(db, 'settings', newUser.uid);
+      const defaultSettings = {
+        ownerId: newUser.uid,
+        userId: newUser.uid,
+        profile: {
+          firstName: firstName || '',
+          lastName: lastName || '',
+          email: email,
+          phone: '',
+        },
+        business: {
+          name: 'Your Business',
+          type: '',
+          address: '',
+          currency: 'KSh (Kenyan Shilling)',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+        notifications: {
+          lowStockAlerts: true,
+          lowStockThreshold: 5,
+          finishedProductThreshold: 5,
+          bakingSupplyThreshold: 10,
+          dailySalesSummary: true,
+          newOrderNotifications: false,
+          expenseReminders: true,
+        },
+        security: {
+          twoFactorEnabled: false,
+        },
+      };
+
+      await setDoc(userSettingsRef, defaultSettings);
+    } catch (firestoreError) {
+      // Even if Firestore fails, the account was created successfully
+      // Log the error but don't throw - the user can still use the app
+      console.error('Failed to save user profile to Firestore:', firestoreError);
+      // We don't re-throw here because the account WAS created successfully
     }
   };
 

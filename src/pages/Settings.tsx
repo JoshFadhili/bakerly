@@ -142,8 +142,8 @@ export default function Settings() {
 
   // Handle profile save
   const handleProfileSave = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error("First name and last name are required");
+    if (!firstName.trim()) {
+      toast.error("First name is required");
       return;
     }
 

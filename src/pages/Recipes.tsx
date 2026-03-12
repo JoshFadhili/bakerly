@@ -444,6 +444,9 @@ export default function Recipes() {
               <p className="text-sm text-muted-foreground">
                 {searchQuery ? "Try a different search term" : "Create your first recipe to get started"}
               </p>
+              <Button onClick={() => setIsAddDialogOpen(true)} className="mt-4">
+                Add your first recipe
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">

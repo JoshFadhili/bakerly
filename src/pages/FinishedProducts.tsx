@@ -443,7 +443,7 @@ export default function FinishedProducts() {
             <div className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground mb-4">No finished products found</p>
               <Button onClick={() => setIsNewPurchaseDialogOpen(true)}>
-                Create your first finished product
+                Add your first finished product
               </Button>
             </div>
           ) : (

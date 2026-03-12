@@ -383,7 +383,7 @@ export default function Reports() {
         <TabsContent value="table" className="space-y-6">
           {/* Summary Bar */}
           {summary && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
               <Card className="border-l-4 border-l-erp-green">
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Total Gross Profit/Loss</p>

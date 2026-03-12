@@ -24,9 +24,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: ShoppingCart, label: "Sales", path: "/sales" },
-  { icon: Package, label: "Product, Services & Baking Supply details", path: "/products" },
+  { icon: Package, label: "Products & Supplies", path: "/products" },
   { icon: Warehouse, label: "Inventory", path: "/inventory" },
-  { icon: Truck, label: "Baking supply purchases", path: "/purchases" },
+  { icon: Truck, label: "Purchases", path: "/purchases" },
   { icon: Cake, label: "Finished Products", path: "/finished-products" },
   { icon: ChefHat, label: "Recipes", path: "/recipes" },
   { icon: Receipt, label: "Expenses", path: "/expenses" },
@@ -69,11 +69,12 @@ const SidebarContent = ({ collapsed, onToggle }: SidebarContentProps) => {
                 <NavLink
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors truncate",
                     isActive
                       ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
                       : "text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-orange-600 dark:hover:text-orange-400"
                   )}
+                  title={item.label}
                 >
                   <item.icon className="h-5 w-5 shrink-0" />
                   {!collapsed && <span>{item.label}</span>}
@@ -122,7 +123,7 @@ export function ERPSidebar() {
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-72 sm:w-64 p-0">
           <SidebarContent collapsed={false} />
         </SheetContent>
       </Sheet>
@@ -139,14 +140,6 @@ export function ERPSidebar() {
           onToggle={() => setCollapsed(!collapsed)}
         />
       </aside>
-
-      {/* Spacer for main content */}
-      <div
-        className={cn(
-          "hidden transition-all duration-300 lg:block",
-          collapsed ? "w-16" : "w-64"
-        )}
-      />
     </>
   );
 }

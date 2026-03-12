@@ -212,7 +212,7 @@ export default function Expenses() {
   return (
     <ERPLayout title="Expenses" subtitle="Track and manage business expenses">
       {/* Summary Section */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+      <div className="mb-6 grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Expense Summary</CardTitle>

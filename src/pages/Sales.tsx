@@ -369,7 +369,7 @@ export default function Sales() {
   return (
     <ERPLayout title="Sales" subtitle="Track and manage all sales transactions">
       {/* Summary Cards */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-4">
+      <div className="mb-6 grid gap-4 grid-cols-2 sm:grid-cols-4">
         {activeTab === "sales" ? (
           <>
             <Card className="border-l-4 border-l-erp-blue">

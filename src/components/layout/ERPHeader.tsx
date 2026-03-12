@@ -64,8 +64,8 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
   };
 
   return (
-    <header className="flex flex-col gap-4 border-b border-orange-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-      <div className="pt-10 lg:pt-0">
+    <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-orange-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <div className="pl-10 sm:pl-0">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
           {title}
         </h1>
@@ -74,14 +74,15 @@ export function ERPHeader({ title, subtitle }: ERPHeaderProps) {
         )}
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="sale" size="sm" onClick={handleNewSaleClick}>
+      <div className="flex items-center gap-1 sm:gap-3 -ml-2 sm:ml-0 overflow-x-auto">
+        <Button variant="sale" size="sm" className="flex-shrink-0" onClick={handleNewSaleClick}>
           <ShoppingCart className="h-4 w-4" />
-          <span className="hidden sm:inline">New Sale</span>
+          <span className="ml-1 hidden sm:inline">New Sale</span>
         </Button>
-        <Button variant="success" size="sm" onClick={handleNewServiceOfferedClick}>
+        <Button variant="success" size="sm" className="flex-shrink-0" onClick={handleNewServiceOfferedClick}>
           <Wrench className="h-4 w-4" />
-          <span className="hidden sm:inline">New Service Offered</span>
+          <span className="ml-1 hidden md:inline">New Service Offered</span>
+          <span className="ml-1 sm:hidden">Service</span>
         </Button>
 
         <div className="ml-2 flex items-center gap-2">

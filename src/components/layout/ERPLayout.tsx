@@ -12,9 +12,9 @@ export function ERPLayout({ children, title, subtitle }: ERPLayoutProps) {
   return (
     <div className="flex min-h-screen w-full bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <ERPSidebar />
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col lg:ml-64">
         <ERPHeader title={title} subtitle={subtitle} />
-        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-auto p-4 pb-20 sm:p-6 sm:pb-6 lg:p-8">
           {children}
         </main>
       </div>

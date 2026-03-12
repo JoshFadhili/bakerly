@@ -383,7 +383,7 @@ export default function Inventory() {
         {/* Finished Products Tab */}
         <TabsContent value="finished-products">
           {/* Quick Stats */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-l-erp-blue">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Total Products</p>
@@ -609,7 +609,7 @@ export default function Inventory() {
         {/* Baking Supplies Tab */}
         <TabsContent value="baking-supplies">
           {/* Quick Stats */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-l-erp-blue">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Total Supplies</p>

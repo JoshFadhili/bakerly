@@ -290,7 +290,7 @@ export default function Finance() {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           {/* Summary Bar - Overall Financial Data */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
             <SummaryCard
               title="Revenue"
               value={overallSummary?.revenue || 0}
@@ -522,7 +522,7 @@ export default function Finance() {
         {/* Monthly Financial Trend/Data Tab */}
         <TabsContent value="monthly" className="space-y-6">
           {/* Summary Bar - Current Month */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
             <SummaryCard
               title="Revenue"
               value={monthlySummary?.revenue || 0}
@@ -648,7 +648,7 @@ export default function Finance() {
         {/* Annual Financial Trend/Data Tab */}
         <TabsContent value="annual" className="space-y-6">
           {/* Summary Bar - Current Year */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
             <SummaryCard
               title="Revenue"
               value={annualSummary?.revenue || 0}

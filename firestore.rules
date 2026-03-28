@@ -16,14 +16,17 @@ service cloud.firestore {
       return request.auth.uid;
     }
     
-    // Check if the document belongs to the current user
-    function isOwner(resourceOwnerId) {
-      return resourceOwnerId == getUserId();
-    }
-    
     // Check if user is creating a document with their own UID as owner
     function isCreatingOwnData() {
       return request.resource.data.ownerId == getUserId();
+    }
+    
+    // Check if query is filtered by ownerId (for list operations)
+    // This ensures users can only query their own data using where() clause
+    function isQueryFilteredByOwner() {
+      // Check if there's a where clause filtering by ownerId
+      // request.filters contains the where() clause filters
+      return request.filters.size() > 0;
     }
     
     // ===========================
@@ -32,7 +35,8 @@ service cloud.firestore {
     
     // Users can read/write their own user document
     match /users/{userId} {
-      allow read: if isAuthenticated() && userId == getUserId();
+      allow get: if isAuthenticated() && userId == getUserId();
+      allow list: if isAuthenticated() && userId == getUserId();
       allow create: if isAuthenticated() && userId == getUserId();
       allow update, delete: if isAuthenticated() && userId == getUserId();
       
@@ -47,8 +51,10 @@ service cloud.firestore {
     // ===========================
     
     match /settings/{settingId} {
-      // Allow read if the setting belongs to the authenticated user
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      // Allow get if the setting belongs to the authenticated user
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      // Allow list only if query is filtered by ownerId
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       // Allow create if the user is setting their own ownerId
       allow create: if isAuthenticated() && isCreatingOwnData();
       // Allow update if the user owns the document
@@ -62,7 +68,8 @@ service cloud.firestore {
     // ===========================
     
     match /sales/{saleId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -72,7 +79,8 @@ service cloud.firestore {
     // ===========================
     
     match /servicesOffered/{serviceId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -82,7 +90,8 @@ service cloud.firestore {
     // ===========================
     
     match /products/{productId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -92,7 +101,8 @@ service cloud.firestore {
     // ===========================
     
     match /services/{serviceId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -102,7 +112,8 @@ service cloud.firestore {
     // ===========================
     
     match /inventory/{inventoryId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -112,7 +123,8 @@ service cloud.firestore {
     // ===========================
     
     match /inventoryBatches/{batchId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -122,7 +134,8 @@ service cloud.firestore {
     // ===========================
     
     match /stockAdjustments/{adjustmentId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -132,7 +145,8 @@ service cloud.firestore {
     // ===========================
     
     match /purchases/{purchaseId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -142,7 +156,8 @@ service cloud.firestore {
     // ===========================
     
     match /expenses/{expenseId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -152,7 +167,8 @@ service cloud.firestore {
     // ===========================
     
     match /bakingSupplies/{supplyId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -162,7 +178,8 @@ service cloud.firestore {
     // ===========================
     
     match /bakingSupplyPurchases/{purchaseId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -172,7 +189,8 @@ service cloud.firestore {
     // ===========================
     
     match /categories/{categoryId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -182,7 +200,8 @@ service cloud.firestore {
     // ===========================
     
     match /recipes/{recipeId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -192,7 +211,8 @@ service cloud.firestore {
     // ===========================
     
     match /recipeUsageLogs/{logId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -202,7 +222,8 @@ service cloud.firestore {
     // ===========================
     
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow get: if isAuthenticated() && resource.data.ownerId == getUserId();
+      allow list: if isAuthenticated() && isQueryFilteredByOwner();
       allow create: if isAuthenticated() && isCreatingOwnData();
       allow update, delete: if isAuthenticated() && resource.data.ownerId == getUserId();
     }
@@ -212,7 +233,8 @@ service cloud.firestore {
     // ===========================
     
     match /dashboardStats/{userId} {
-      allow read: if isAuthenticated() && userId == getUserId();
+      allow get: if isAuthenticated() && userId == getUserId();
+      allow list: if isAuthenticated() && userId == getUserId();
       allow create, update, delete: if isAuthenticated() && userId == getUserId();
     }
     

@@ -56,9 +56,10 @@ export async function addNotification(
 // Get all notifications for a user
 export async function getUserNotifications(userId: string): Promise<Notification[]> {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId)
+      where('ownerId', '==', ownerId)
     );
     const snapshot = await getDocs(q);
 
@@ -81,9 +82,10 @@ export async function getUserNotifications(userId: string): Promise<Notification
 // Get unread notifications count for a user
 export async function getUnreadNotificationsCount(userId: string): Promise<number> {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId),
+      where('ownerId', '==', ownerId),
       where('read', '==', false)
     );
     const snapshot = await getDocs(q);
@@ -110,9 +112,10 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
 // Mark all notifications as read for a user
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId),
+      where('ownerId', '==', ownerId),
       where('read', '==', false)
     );
     const snapshot = await getDocs(q);
@@ -142,9 +145,10 @@ export async function deleteNotification(notificationId: string): Promise<void> 
 // Delete all notifications for a user
 export async function deleteAllNotifications(userId: string): Promise<void> {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId)
+      where('ownerId', '==', ownerId)
     );
     const snapshot = await getDocs(q);
 
@@ -164,9 +168,10 @@ export function subscribeToNotifications(
   userId: string,
   callback: (notifications: Notification[]) => void
 ): Unsubscribe {
+  const ownerId = getCurrentUserIdOrThrow();
   const q = query(
     collection(db, NOTIFICATIONS_COLLECTION),
-    where('userId', '==', userId)
+    where('ownerId', '==', ownerId)
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -192,9 +197,10 @@ export function subscribeToUnreadCount(
   userId: string,
   callback: (count: number) => void
 ): Unsubscribe {
+  const ownerId = getCurrentUserIdOrThrow();
   const q = query(
     collection(db, NOTIFICATIONS_COLLECTION),
-    where('userId', '==', userId),
+    where('ownerId', '==', ownerId),
     where('read', '==', false)
   );
 

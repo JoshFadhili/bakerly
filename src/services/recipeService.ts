@@ -94,7 +94,8 @@ export const getRecipe = async (id: string): Promise<Recipe | null> => {
 // Get recipe by product ID
 export const getRecipeByProductId = async (productId: string): Promise<Recipe | null> => {
   try {
-    const q = query(recipesRef, where("productId", "==", productId));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(recipesRef, where("ownerId", "==", ownerId), where("productId", "==", productId));
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
     const docSnap = snapshot.docs[0];
@@ -209,7 +210,33 @@ export const deductBakingSuppliesForProduction = async (
       const transactionDeductedIngredients: RecipeIngredient[] = [];
       let transactionTotalCost = 0;
 
-      // Process each ingredient within the transaction
+      // FIRST: Read ALL batch documents before any writes (required by Firestore transactions)
+      const batchDocs: { ref: any; data: any; batch: BakingSupplyPurchase }[] = [];
+      
+      for (const { ingredient, batches, quantityToDeduct } of ingredientStockChecks) {
+        for (const batch of batches) {
+          const batchRef = doc(db, "bakingSupplyPurchases", batch.id!);
+          const batchDoc = await transaction.get(batchRef);
+          
+          if (!batchDoc.exists()) {
+            throw new Error(`Batch ${batch.batchId} not found`);
+          }
+          
+          batchDocs.push({
+            ref: batchRef,
+            data: batchDoc.data(),
+            batch
+          });
+        }
+      }
+
+      // Group batch docs by ingredient for processing
+      const batchDocsByIngredient: Map<BakingSupplyPurchase, { ref: any; data: any }> = new Map();
+      for (const bd of batchDocs) {
+        batchDocsByIngredient.set(bd.batch, { ref: bd.ref, data: bd.data });
+      }
+
+      // SECOND: Process all deductions and perform writes
       for (const { ingredient, batches, quantityToDeduct } of ingredientStockChecks) {
         // Re-check availability within transaction to ensure consistency
         let remainingToDeduct = quantityToDeduct;
@@ -218,15 +245,10 @@ export const deductBakingSuppliesForProduction = async (
         for (const batch of batches) {
           if (remainingToDeduct <= 0) break;
 
-          // Get the batch document within the transaction
-          const batchRef = doc(db, "bakingSupplyPurchases", batch.id!);
-          const batchDoc = await transaction.get(batchRef);
-
-          if (!batchDoc.exists()) {
-            throw new Error(`Batch ${batch.batchId} not found`);
-          }
-
-          const batchData = batchDoc.data();
+          const batchInfo = batchDocsByIngredient.get(batch);
+          if (!batchInfo) continue;
+          
+          const batchData = batchInfo.data;
           const batchRemaining = batchData.quantityRemaining !== undefined ? batchData.quantityRemaining : batchData.quantity;
 
           if (batchRemaining > 0) {
@@ -244,7 +266,7 @@ export const deductBakingSuppliesForProduction = async (
               updateData.depletedAt = Timestamp.now();
             }
 
-            transaction.update(batchRef, updateData);
+            transaction.update(batchInfo.ref, updateData);
 
             // Track the cost using the batch's actual unit price
             ingredientCost += deductFromThisBatch * batchData.unitPrice;
@@ -263,7 +285,7 @@ export const deductBakingSuppliesForProduction = async (
           ...ingredient,
           quantity: quantityToDeduct,
           totalCost: ingredientCost,
-          unitCost: quantityToDeduct > 0 ? ingredientCost / quantityToDeduct : 0, // Update unit cost to actual average from batches
+          unitCost: quantityToDeduct > 0 ? ingredientCost / quantityToDeduct : 0,
         });
 
         transactionTotalCost += ingredientCost;
@@ -315,7 +337,8 @@ export const deductBakingSuppliesForProduction = async (
 // Get usage logs for a recipe
 export const getRecipeUsageLogs = async (recipeId: string): Promise<RecipeUsageLog[]> => {
   try {
-    const q = query(recipeUsageLogsRef, where("recipeId", "==", recipeId));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(recipeUsageLogsRef, where("ownerId", "==", ownerId), where("recipeId", "==", recipeId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
@@ -336,7 +359,9 @@ export const getRecipeUsageLogs = async (recipeId: string): Promise<RecipeUsageL
 // Get all usage logs
 export const getAllUsageLogs = async (): Promise<RecipeUsageLog[]> => {
   try {
-    const snapshot = await getDocs(recipeUsageLogsRef);
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(recipeUsageLogsRef, where("ownerId", "==", ownerId));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {

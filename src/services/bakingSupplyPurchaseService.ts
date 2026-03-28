@@ -107,8 +107,10 @@ export const deleteBakingSupplyPurchase = async (id: string) => {
 // 🔍 SEARCH BAKING SUPPLY PURCHASES BY SUPPLY NAME
 export const searchBakingSupplyPurchasesByName = async (supplyName: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("supplyName", ">=", supplyName),
       where("supplyName", "<=", supplyName + "\uf8ff"),
       orderBy("date", "desc")
@@ -143,8 +145,10 @@ export const searchBakingSupplyPurchasesByName = async (supplyName: string): Pro
 // 🔍 SEARCH BAKING SUPPLY PURCHASES BY SUPPLIER
 export const searchBakingSupplyPurchasesBySupplier = async (supplier: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("supplier", ">=", supplier),
       where("supplier", "<=", supplier + "\uf8ff"),
       orderBy("date", "desc")
@@ -179,8 +183,10 @@ export const searchBakingSupplyPurchasesBySupplier = async (supplier: string): P
 // 🔍 FILTER BAKING SUPPLY PURCHASES BY STATUS
 export const filterBakingSupplyPurchasesByStatus = async (status: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", status),
       orderBy("date", "desc")
     );
@@ -214,8 +220,10 @@ export const filterBakingSupplyPurchasesByStatus = async (status: string): Promi
 // 🔍 FILTER BAKING SUPPLY PURCHASES BY PURPOSE
 export const filterBakingSupplyPurchasesByPurpose = async (purpose: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("purpose", "==", purpose),
       orderBy("date", "desc")
     );
@@ -252,11 +260,13 @@ export const filterBakingSupplyPurchasesByDateRange = async (
   endDate: Date
 ): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
 
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")
@@ -294,8 +304,10 @@ export const filterBakingSupplyPurchasesByCostRange = async (
   maxCost: number
 ): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("totalCost", ">=", minCost),
       where("totalCost", "<=", maxCost),
       orderBy("date", "desc")
@@ -331,10 +343,12 @@ export const filterBakingSupplyPurchasesByCostRange = async (
 export const getBakingSupplyPurchasesBySupplyName = async (supplyName: string): Promise<BakingSupplyPurchase[]> => {
   try {
     console.log("[getBakingSupplyPurchasesBySupplyName] Looking for:", supplyName);
+    const ownerId = getCurrentUserIdOrThrow();
     // Query all received purchases first, then filter by supply name
     // This avoids the need for a composite Firestore index
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);
@@ -382,9 +396,11 @@ export const getBakingSupplyPurchasesBySupplyName = async (supplyName: string): 
 // 📦 GET BATCHES BY SUPPLY NAME (for inventory batch details)
 export const getBatchesBySupplyName = async (supplyName: string): Promise<BakingSupplyPurchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     // Query all received purchases first, then filter by supply name
     const q = query(
       bakingSupplyPurchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);

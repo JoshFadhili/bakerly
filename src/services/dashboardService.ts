@@ -6,7 +6,7 @@ import { getServicesOffered, filterServicesOfferedByDateRange } from "./serviceO
 import { getBakingSupplies } from "./bakingSupplyService";
 import { getBakingSupplyPurchases, filterBakingSupplyPurchasesByDateRange } from "./bakingSupplyPurchaseService";
 import { getUserSettings } from "./settingsService";
-import { collection, onSnapshot, query, orderBy, limit, Timestamp, Unsubscribe } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, Unsubscribe } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 
 // Types for dashboard data
@@ -482,10 +482,15 @@ export const subscribeToRecentActivities = (
   // Create queries for each collection with limits for efficiency
   // Fetch more than needed (limitCount * 2) to ensure we get enough after filtering
   const queryLimit = Math.max(limitCount * 2, 20);
-  const salesQuery = query(collection(db, "sales"), orderBy("createdAt", "desc"), limit(queryLimit));
-  const purchasesQuery = query(collection(db, "purchases"), orderBy("createdAt", "desc"), limit(queryLimit));
-  const expensesQuery = query(collection(db, "expenses"), orderBy("createdAt", "desc"), limit(queryLimit));
-  const servicesQuery = query(collection(db, "servicesOffered"), orderBy("createdAt", "desc"), limit(queryLimit));
+  const ownerId = auth.currentUser?.uid;
+  if (!ownerId) {
+    console.error("No authenticated user found");
+    return () => {};
+  }
+  const salesQuery = query(collection(db, "sales"), where("ownerId", "==", ownerId), orderBy("createdAt", "desc"), limit(queryLimit));
+  const purchasesQuery = query(collection(db, "purchases"), where("ownerId", "==", ownerId), orderBy("createdAt", "desc"), limit(queryLimit));
+  const expensesQuery = query(collection(db, "expenses"), where("ownerId", "==", ownerId), orderBy("createdAt", "desc"), limit(queryLimit));
+  const servicesQuery = query(collection(db, "servicesOffered"), where("ownerId", "==", ownerId), orderBy("createdAt", "desc"), limit(queryLimit));
 
   // Track all data from all collections
   let salesData: any[] = [];

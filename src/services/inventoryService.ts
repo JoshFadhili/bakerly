@@ -68,7 +68,9 @@ export const getInventoryByCategory = async (category: string) => {
 
 // 📥 Get low stock items (from inventory collection)
 export const getLowStockItems = async (threshold: number = 5) => {
-  const snapshot = await getDocs(inventoryRef);
+  const ownerId = getCurrentUserIdOrThrow();
+  const q = query(inventoryRef, where("ownerId", "==", ownerId));
+  const snapshot = await getDocs(q);
   return snapshot.docs
     .map(doc => ({
       id: doc.id,
@@ -136,7 +138,9 @@ export const adjustStock = async (id: string, adjustment: number, reason?: strin
 
 // 📥 Get stock adjustments history
 export const getStockAdjustments = async () => {
-  const snapshot = await getDocs(stockAdjustmentsRef);
+  const ownerId = getCurrentUserIdOrThrow();
+  const q = query(stockAdjustmentsRef, where("ownerId", "==", ownerId));
+  const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
@@ -145,8 +149,10 @@ export const getStockAdjustments = async () => {
 
 // ➕ Add stock adjustment record
 export const addStockAdjustment = async (data: any) => {
+  const ownerId = getCurrentUserIdOrThrow();
   await addDoc(stockAdjustmentsRef, {
     ...data,
+    ownerId,
     createdAt: Timestamp.now(),
   });
 };
@@ -154,7 +160,9 @@ export const addStockAdjustment = async (data: any) => {
 // 🔧 Retroactively fix all inventory items with "Uncategorized" category
 export const fixAllInventoryCategories = async (): Promise<{ updated: number; skipped: number }> => {
   try {
-    const snapshot = await getDocs(inventoryRef);
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(inventoryRef, where("ownerId", "==", ownerId));
+    const snapshot = await getDocs(q);
     let updated = 0;
     let skipped = 0;
 
@@ -210,7 +218,8 @@ export const syncInventoryFromPurchase = async (
   }
 
   // Check if inventory item already exists
-  const q = query(inventoryRef, where("name", "==", itemName));
+  const ownerId = getCurrentUserIdOrThrow();
+  const q = query(inventoryRef, where("ownerId", "==", ownerId), where("name", "==", itemName));
   const snapshot = await getDocs(q);
 
   if (snapshot.empty) {
@@ -220,6 +229,7 @@ export const syncInventoryFromPurchase = async (
       category: productCategory || "Uncategorized",
       stock: quantity,
       status: quantity < threshold ? "low_stock" : "active",
+      ownerId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -258,7 +268,8 @@ export const updateInventoryFromPurchaseEdit = async (
   const productCategory = await getProductCategoryByName(itemName);
 
   // Check if inventory item exists
-  const q = query(inventoryRef, where("name", "==", itemName));
+  const ownerId = getCurrentUserIdOrThrow();
+  const q = query(inventoryRef, where("ownerId", "==", ownerId), where("name", "==", itemName));
   const snapshot = await getDocs(q);
 
   if (snapshot.empty) {
@@ -269,6 +280,7 @@ export const updateInventoryFromPurchaseEdit = async (
         category: productCategory || "Uncategorized",
         stock: newQuantity,
         status: newQuantity < threshold ? "low_stock" : "active",
+        ownerId,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
@@ -318,7 +330,8 @@ export const updateInventoryFromSale = async (
 ): Promise<void> => {
   try {
     // Check if inventory item exists
-    const q = query(inventoryRef, where("name", "==", itemName));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(inventoryRef, where("ownerId", "==", ownerId), where("name", "==", itemName));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -380,8 +393,10 @@ export const updateInventoryFromSale = async (
 // 🔄 Get batches for a product (for stock adjustment)
 export const getBatchesForProduct = async (productName: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);

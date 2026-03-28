@@ -91,8 +91,10 @@ export const deleteExpense = async (id: string) => {
 // 🔍 FILTER EXPENSES BY CATEGORY
 export const filterExpensesByCategory = async (category: string): Promise<Expense[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       expensesRef,
+      where("ownerId", "==", ownerId),
       where("category", "==", category),
       orderBy("date", "desc")
     );
@@ -126,8 +128,10 @@ export const filterExpensesByAmountRange = async (
   maxAmount: number
 ): Promise<Expense[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       expensesRef,
+      where("ownerId", "==", ownerId),
       where("amount", ">=", minAmount),
       where("amount", "<=", maxAmount),
       orderBy("date", "desc")
@@ -164,9 +168,11 @@ export const filterExpensesByDateRange = async (
   try {
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
+    const ownerId = getCurrentUserIdOrThrow();
 
     const q = query(
       expensesRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")
@@ -207,9 +213,11 @@ export const filterExpensesByMonthAndYear = async (
 
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
+    const ownerId = getCurrentUserIdOrThrow();
 
     const q = query(
       expensesRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")

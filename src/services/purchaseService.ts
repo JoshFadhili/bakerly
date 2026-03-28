@@ -14,6 +14,7 @@ import { db } from "../lib/firebase";
 import { getCurrentUserIdOrThrow } from "../lib/userData";
 import { Purchase } from "../types/purchase";
 import { deleteDoc } from "firebase/firestore";
+import { sortByDateTimeDesc } from "../lib/sortingUtils";
 
 // 🔗 Collection reference
 const purchasesRef = collection(db, "purchases");
@@ -45,10 +46,20 @@ export const addPurchase = async (purchase: Purchase) => {
 export const getPurchases = async (): Promise<Purchase[]> => {
   try {
     const ownerId = getCurrentUserIdOrThrow();
-    const q = query(purchasesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
-    const snapshot = await getDocs(q);
+    
+    // Try with ordering first (requires composite index)
+    let snapshot;
+    try {
+      const q = query(purchasesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
+      snapshot = await getDocs(q);
+    } catch (indexError) {
+      // Fallback: fetch without order and sort client-side while index builds
+      console.warn("Index not ready, using client-side sorting fallback");
+      const q = query(purchasesRef, where("ownerId", "==", ownerId));
+      snapshot = await getDocs(q);
+    }
 
-    return snapshot.docs.map((docSnap) => {
+    const purchases = snapshot.docs.map((docSnap) => {
       const data = docSnap.data() as Omit<Purchase, "id">;
       return {
         id: docSnap.id,
@@ -68,6 +79,9 @@ export const getPurchases = async (): Promise<Purchase[]> => {
           : data.depletedAt,
       };
     });
+
+    // Sort by date descending (client-side fallback)
+    return sortByDateTimeDesc(purchases);
   } catch (error) {
     console.error("Error fetching purchases:", error);
     throw new Error("Failed to fetch purchases. Please try again.");
@@ -106,8 +120,10 @@ export const deletePurchase = async (id: string) => {
 // 🔍 SEARCH PURCHASES BY ITEM NAME
 export const searchPurchasesByItemName = async (itemName: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("itemName", ">=", itemName),
       where("itemName", "<=", itemName + "\uf8ff"),
       orderBy("date", "desc")
@@ -142,8 +158,10 @@ export const searchPurchasesByItemName = async (itemName: string): Promise<Purch
 // 🔍 SEARCH PURCHASES BY SUPPLIER
 export const searchPurchasesBySupplier = async (supplier: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("supplier", ">=", supplier),
       where("supplier", "<=", supplier + "\uf8ff"),
       orderBy("date", "desc")
@@ -178,8 +196,10 @@ export const searchPurchasesBySupplier = async (supplier: string): Promise<Purch
 // 🔍 FILTER PURCHASES BY STATUS
 export const filterPurchasesByStatus = async (status: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", status),
       orderBy("date", "desc")
     );
@@ -218,9 +238,11 @@ export const filterPurchasesByDateRange = async (
   try {
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
+    const ownerId = getCurrentUserIdOrThrow();
 
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")
@@ -258,8 +280,10 @@ export const filterPurchasesByCostRange = async (
   maxCost: number
 ): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("totalCost", ">=", minCost),
       where("totalCost", "<=", maxCost),
       orderBy("date", "desc")
@@ -294,10 +318,12 @@ export const filterPurchasesByCostRange = async (
 // 📦 GET PURCHASES BY PRODUCT NAME (for FIFO tracking)
 export const getPurchasesByProductName = async (itemName: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     // Query all received purchases first, then filter by product name
     // This avoids the need for a composite Firestore index
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);
@@ -343,9 +369,11 @@ export const getPurchasesByProductName = async (itemName: string): Promise<Purch
 // 📦 GET BATCHES BY PRODUCT NAME (for inventory batch details)
 export const getBatchesByProductName = async (itemName: string): Promise<Purchase[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     // Query all received purchases first, then filter by product name
     const q = query(
       purchasesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", "received")
     );
     const snapshot = await getDocs(q);
@@ -525,7 +553,12 @@ export const restoreBatchQuantitiesForProduct = async (itemName: string, quantit
 // This preserves purchase records while hiding them from the batch details view
 export const deleteOldDepletedBatches = async (): Promise<{ hidden: number; skipped: number }> => {
   try {
-    const q = query(purchasesRef, where("status", "==", "received"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(
+      purchasesRef,
+      where("ownerId", "==", ownerId),
+      where("status", "==", "received")
+    );
     const snapshot = await getDocs(q);
 
     let hidden = 0;

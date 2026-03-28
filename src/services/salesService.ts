@@ -330,9 +330,11 @@ const adjustStockByName = async (
   threshold: number = 5
 ): Promise<void> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const inventoryRef = collection(db, "inventory");
-    const q = query(inventoryRef, where("name", "==", itemName));
+    const q = query(inventoryRef, where("ownerId", "==", ownerId), where("name", "==", itemName));
     const snapshot = await getDocs(q);
+
 
     if (snapshot.empty) {
       console.warn(`Warning: Inventory item not found for ${itemName}. Cannot adjust stock.`);
@@ -375,8 +377,9 @@ const adjustBakingSupplyStockByName = async (
   reason?: string
 ): Promise<void> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const bakingSuppliesRef = collection(db, "bakingSupplies");
-    const q = query(bakingSuppliesRef, where("name", "==", supplyName));
+    const q = query(bakingSuppliesRef, where("ownerId", "==", ownerId), where("name", "==", supplyName));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -413,7 +416,8 @@ const adjustBakingSupplyStockByName = async (
 // 📥 GET SALES
 export const getSales = async (): Promise<Sale[]> => {
   try {
-    const q = query(salesRef, orderBy("date", "desc"));
+    const ownerId = getCurrentUserIdOrThrow();
+    const q = query(salesRef, where("ownerId", "==", ownerId), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((docSnap) => {
@@ -540,8 +544,10 @@ const restoreInventoryFromSale = async (
 // 🔍 SEARCH SALES BY ITEM NAME
 export const searchSalesByItemName = async (itemName: string): Promise<Sale[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       salesRef,
+      where("ownerId", "==", ownerId),
       where("itemName", ">=", itemName),
       where("itemName", "<=", itemName + "\uf8ff"),
       orderBy("date", "desc")
@@ -573,8 +579,10 @@ export const searchSalesByItemName = async (itemName: string): Promise<Sale[]> =
 // 🔍 FILTER SALES BY STATUS
 export const filterSalesByStatus = async (status: string): Promise<Sale[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       salesRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", status),
       orderBy("date", "desc")
     );
@@ -605,8 +613,10 @@ export const filterSalesByStatus = async (status: string): Promise<Sale[]> => {
 // 🔍 FILTER SALES BY PAYMENT METHOD
 export const filterSalesByPayment = async (payment: string): Promise<Sale[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       salesRef,
+      where("ownerId", "==", ownerId),
       where("payment", "==", payment),
       orderBy("date", "desc")
     );
@@ -640,8 +650,10 @@ export const filterSalesByAmountRange = async (
   maxAmount: number
 ): Promise<Sale[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       salesRef,
+      where("ownerId", "==", ownerId),
       where("totalAmount", ">=", minAmount),
       where("totalAmount", "<=", maxAmount),
       orderBy("date", "desc")
@@ -678,9 +690,11 @@ export const filterSalesByDateRange = async (
   try {
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
+    const ownerId = getCurrentUserIdOrThrow();
 
     const q = query(
       salesRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")

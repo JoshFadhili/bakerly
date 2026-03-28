@@ -94,8 +94,10 @@ export const deleteServiceOffered = async (id: string) => {
 // 🔍 SEARCH SERVICES OFFERED BY SERVICE NAME
 export const searchServicesOfferedByServiceName = async (serviceName: string): Promise<ServiceOffered[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       servicesOfferedRef,
+      where("ownerId", "==", ownerId),
       where("serviceName", ">=", serviceName),
       where("serviceName", "<=", serviceName + "\uf8ff"),
       orderBy("date", "desc")
@@ -127,8 +129,10 @@ export const searchServicesOfferedByServiceName = async (serviceName: string): P
 // 🔍 FILTER SERVICES OFFERED BY STATUS
 export const filterServicesOfferedByStatus = async (status: string): Promise<ServiceOffered[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       servicesOfferedRef,
+      where("ownerId", "==", ownerId),
       where("status", "==", status),
       orderBy("date", "desc")
     );
@@ -159,8 +163,10 @@ export const filterServicesOfferedByStatus = async (status: string): Promise<Ser
 // 🔍 FILTER SERVICES OFFERED BY PAYMENT METHOD
 export const filterServicesOfferedByPayment = async (payment: string): Promise<ServiceOffered[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       servicesOfferedRef,
+      where("ownerId", "==", ownerId),
       where("payment", "==", payment),
       orderBy("date", "desc")
     );
@@ -194,8 +200,10 @@ export const filterServicesOfferedByAmountRange = async (
   maxAmount: number
 ): Promise<ServiceOffered[]> => {
   try {
+    const ownerId = getCurrentUserIdOrThrow();
     const q = query(
       servicesOfferedRef,
+      where("ownerId", "==", ownerId),
       where("totalAmount", ">=", minAmount),
       where("totalAmount", "<=", maxAmount),
       orderBy("date", "desc")
@@ -232,9 +240,11 @@ export const filterServicesOfferedByDateRange = async (
   try {
     const startTimestamp = Timestamp.fromDate(startDate);
     const endTimestamp = Timestamp.fromDate(endDate);
+    const ownerId = getCurrentUserIdOrThrow();
 
     const q = query(
       servicesOfferedRef,
+      where("ownerId", "==", ownerId),
       where("date", ">=", startTimestamp),
       where("date", "<=", endTimestamp),
       orderBy("date", "desc")
